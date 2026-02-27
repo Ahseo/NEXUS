@@ -8,10 +8,13 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy import delete, select
 
 from app.core.config import settings
+from app.core.database import async_session_factory
 from app.core.deps import CurrentUser, DbSession, get_current_user
 from app.core.websocket import manager
+from app.models.chat import ChatMessageDB
 from app.models.profile import UserProfileDB
 
 logger = logging.getLogger(__name__)
@@ -59,7 +62,7 @@ CHAT_TOOLS: list[dict[str, Any]] = [
 ]
 
 
-SYSTEM_PROMPT = """You are NEXUS, an autonomous networking agent for SF tech professionals.
+SYSTEM_PROMPT = """You are Wingman, an autonomous networking agent for SF tech professionals.
 You help the user discover events, research people, and build connections.
 
 Current user profile:
@@ -86,8 +89,44 @@ class ChatMessage(BaseModel):
     message: str
 
 
-# In-memory chat history per user (hackathon)
-_chat_histories: dict[str, list[dict[str, Any]]] = {}
+MAX_HISTORY = 20
+
+
+async def _load_history(db: DbSession, user_id: str) -> list[dict[str, Any]]:
+    """Load chat history from database."""
+    stmt = (
+        select(ChatMessageDB)
+        .where(ChatMessageDB.user_id == user_id)
+        .order_by(ChatMessageDB.created_at.asc())
+    )
+    result = await db.execute(stmt)
+    rows = result.scalars().all()
+    return [{"role": r.role, "content": r.content} for r in rows]
+
+
+async def _save_message(db: DbSession, user_id: str, role: str, content: str) -> None:
+    """Save a chat message to the database."""
+    msg = ChatMessageDB(user_id=user_id, role=role, content=content)
+    db.add(msg)
+    await db.commit()
+
+
+async def _trim_history(db: DbSession, user_id: str) -> None:
+    """Keep only the last MAX_HISTORY messages per user."""
+    count_stmt = (
+        select(ChatMessageDB.id)
+        .where(ChatMessageDB.user_id == user_id)
+        .order_by(ChatMessageDB.created_at.asc())
+    )
+    result = await db.execute(count_stmt)
+    all_ids = [row for row in result.scalars().all()]
+
+    if len(all_ids) > MAX_HISTORY:
+        ids_to_delete = all_ids[: len(all_ids) - MAX_HISTORY]
+        await db.execute(
+            delete(ChatMessageDB).where(ChatMessageDB.id.in_(ids_to_delete))
+        )
+        await db.commit()
 
 
 async def _execute_chat_tool(
@@ -139,34 +178,29 @@ async def send_message(
     user: CurrentUser,
     db: DbSession,
 ) -> StreamingResponse:
-    """Send a message to the NEXUS agent and stream the response."""
+    """Send a message to the Wingman agent and stream the response."""
     import anthropic
 
     user_id = user["user_id"]
 
     # Load user profile for context
-    profile = await db.get(UserProfileDB, user_id)
+    profile_row = await db.get(UserProfileDB, user_id)
     profile_context = {
-        "name": profile.name if profile else "User",
-        "role": profile.role if profile else "",
-        "company": profile.company if profile else "",
-        "interests": ", ".join(profile.interests or []) if profile else "",
-        "goals": ", ".join(profile.networking_goals or []) if profile else "",
+        "name": profile_row.name if profile_row else "User",
+        "role": profile_row.role if profile_row else "",
+        "company": profile_row.company if profile_row else "",
+        "interests": ", ".join(profile_row.interests or []) if profile_row else "",
+        "goals": ", ".join(profile_row.networking_goals or []) if profile_row else "",
     }
 
     system = SYSTEM_PROMPT.format(**profile_context)
 
-    # Get or init history
-    if user_id not in _chat_histories:
-        _chat_histories[user_id] = []
-    history = _chat_histories[user_id]
+    # Save user message to DB
+    await _save_message(db, user_id, "user", body.message)
+    await _trim_history(db, user_id)
 
-    # Add user message
-    history.append({"role": "user", "content": body.message})
-
-    # Keep last 20 messages
-    if len(history) > 20:
-        history[:] = history[-20:]
+    # Load full history from DB
+    history = await _load_history(db, user_id)
 
     # Broadcast to websocket that agent is working
     await manager.broadcast(
@@ -247,8 +281,13 @@ async def send_message(
                     {"role": "user", "content": tool_results}
                 )
 
-            # Save assistant response to history (text only for simplicity)
-            history.append({"role": "assistant", "content": full_response})
+            # Save assistant response to DB
+            async with async_session_factory() as save_db:
+                save_msg = ChatMessageDB(
+                    user_id=user_id, role="assistant", content=full_response
+                )
+                save_db.add(save_msg)
+                await save_db.commit()
 
             yield _sse("done", {})
 
@@ -268,13 +307,16 @@ async def send_message(
 
 
 @router.get("/history")
-async def get_history(user: CurrentUser) -> list[dict[str, Any]]:
+async def get_history(user: CurrentUser, db: DbSession) -> list[dict[str, Any]]:
     """Return chat history for current user."""
-    return _chat_histories.get(user["user_id"], [])
+    return await _load_history(db, user["user_id"])
 
 
 @router.delete("/history")
-async def clear_history(user: CurrentUser) -> dict[str, str]:
+async def clear_history(user: CurrentUser, db: DbSession) -> dict[str, str]:
     """Clear chat history for current user."""
-    _chat_histories.pop(user["user_id"], None)
+    await db.execute(
+        delete(ChatMessageDB).where(ChatMessageDB.user_id == user["user_id"])
+    )
+    await db.commit()
     return {"status": "cleared"}
