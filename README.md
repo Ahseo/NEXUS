@@ -5,7 +5,7 @@
 <h1 align="center">Wingman</h1>
 
 <p align="center">
-  <strong>Your autonomous networking agent for San Francisco.</strong><br/>
+  <strong>Your autonomous networking agent.</strong><br/>
   Discovers events, auto-applies, deep-researches every attendee, and drafts personalized outreach — so you never show up blind.
 </p>
 
@@ -25,7 +25,7 @@
 
 Wingman is a continuously-running AI agent that acts as your networking chief-of-staff. It autonomously:
 
-1. **Scans 10+ event sources** across SF (Eventbrite, Lu.ma, Meetup, Partiful, Twitter, newsletters)
+1. **Scans 10+ event sources** (Eventbrite, Lu.ma, Meetup, Partiful, Twitter, newsletters)
 2. **Scores & auto-applies** to events matching your profile
 3. **Deep-researches every attendee** — from just a name, it finds their background, role, company, and socials
 4. **Drafts personalized cold messages** with relevant hooks before the event
@@ -33,7 +33,7 @@ Wingman is a continuously-running AI agent that acts as your networking chief-of
 
 **The full loop:** Discover → Score → Apply → Schedule → Research Attendees → Find Socials → Draft Outreach → Attend → Follow Up → Repeat
 
-> Built at the [Autonomous Agents Hackathon](https://autonomous-agents-hackathon.devpost.com/) (Feb 2026, AWS Builder Loft SF)
+> Built at the [Autonomous Agents Hackathon](https://autonomous-agents-hackathon.devpost.com/) (Feb 2026)
 
 ---
 

@@ -16,7 +16,17 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "WINGMAN",
-  description: "Autonomous Networking Agent for SF",
+  description: "Your autonomous networking agent",
+  openGraph: {
+    title: "WINGMAN",
+    description: "Your autonomous networking agent",
+    siteName: "WINGMAN",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "WINGMAN",
+    description: "Your autonomous networking agent",
+  },
 };
 
 export default function RootLayout({
