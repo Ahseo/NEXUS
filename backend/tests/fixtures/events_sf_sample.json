@@ -1,0 +1,86 @@
+[
+  {
+    "title": "AI Founders Dinner — SF",
+    "url": "https://lu.ma/ai-dinner-sf",
+    "source": "luma",
+    "description": "Intimate gathering of 30 founders and investors. Speakers: Sarah Chen (Sequoia), James Liu (a16z). Topics: AI agents, fundraising.",
+    "date": "2026-03-05T18:30:00"
+  },
+  {
+    "title": "AI Founders Dinner SF",
+    "url": "https://www.eventbrite.com/e/ai-founders-dinner-sf",
+    "source": "eventbrite",
+    "description": "Dinner for AI founders in San Francisco.",
+    "date": "2026-03-05T18:30:00"
+  },
+  {
+    "title": "SF Startup Pitch Night",
+    "url": "https://lu.ma/sf-pitch-night",
+    "source": "luma",
+    "description": "10 early-stage startups pitch to a panel of VCs. Networking reception to follow. Free admission.",
+    "date": "2026-03-06T18:00:00"
+  },
+  {
+    "title": "Machine Learning Paper Reading Group",
+    "url": "https://www.meetup.com/sf-ml-reading/events/12345",
+    "source": "meetup",
+    "description": "Weekly paper reading session covering the latest ML research. This week: diffusion models and their applications.",
+    "date": "2026-03-07T17:00:00"
+  },
+  {
+    "title": "Developer Tools Happy Hour",
+    "url": "https://partiful.com/e/devtools-happy-hour",
+    "source": "partiful",
+    "description": "Casual drinks for developers building developer tools. Hosted at Zeitgeist bar in the Mission.",
+    "date": "2026-03-04T17:30:00"
+  },
+  {
+    "title": "SaaS Metrics Workshop",
+    "url": "https://lu.ma/saas-metrics-workshop",
+    "source": "luma",
+    "description": "Hands-on workshop covering unit economics, churn analysis, and growth metrics for SaaS founders. Led by a finance partner at Sequoia.",
+    "date": "2026-03-08T10:00:00"
+  },
+  {
+    "title": "Bay Area AI Safety Meetup",
+    "url": "https://www.meetup.com/bay-area-ai-safety/events/67890",
+    "source": "meetup",
+    "description": "Discussion on AI alignment and safety. Guest speaker from Anthropic.",
+    "date": "2026-03-09T14:00:00"
+  },
+  {
+    "title": "Generative AI Demo Day",
+    "url": "https://lu.ma/gen-ai-demo-day",
+    "source": "luma",
+    "description": "Watch 15 startups demo their generative AI products. Judges from Google, Microsoft, and OpenAI. Prize pool: $50K.",
+    "date": "2026-03-10T13:00:00"
+  },
+  {
+    "title": "GenAI Demo Day — San Francisco",
+    "url": "https://www.eventbrite.com/e/genai-demo-day-sf",
+    "source": "eventbrite",
+    "description": "Generative AI demo day with 15 startups.",
+    "date": "2026-03-10T13:00:00"
+  },
+  {
+    "title": "VC Office Hours for First-Time Founders",
+    "url": "https://lu.ma/vc-office-hours-sf",
+    "source": "luma",
+    "description": "30-minute 1-on-1 sessions with partners from a16z, Greylock, and Lightspeed. Application required.",
+    "date": "2026-03-11T09:00:00"
+  },
+  {
+    "title": "Kubernetes & Cloud Native Meetup",
+    "url": "https://www.meetup.com/sf-k8s/events/99999",
+    "source": "meetup",
+    "description": "Deep dive into Kubernetes operators and service mesh. Pizza and drinks provided.",
+    "date": "2026-03-12T18:00:00"
+  },
+  {
+    "title": "Women in AI Networking Brunch",
+    "url": "https://partiful.com/e/women-in-ai-brunch",
+    "source": "partiful",
+    "description": "Brunch and networking for women in AI/ML. Panel discussion on career growth in tech. Location: The Vault SF.",
+    "date": "2026-03-13T10:30:00"
+  }
+]

@@ -1,0 +1,53 @@
+services:
+  - type: web
+    name: nexus-api
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: YUTORI_API_KEY
+        sync: false
+      - key: NEO4J_URI
+        sync: false
+      - key: NEO4J_USER
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false
+      - key: REKA_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nexus-db
+          property: connectionURI
+      - key: SECRET_KEY
+        generateValue: true
+      - key: NEXUS_MODE
+        value: canary
+
+  - type: web
+    name: nexus-web
+    runtime: node
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://nexus-api.onrender.com
+
+  - type: worker
+    name: nexus-agents
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && python -m app.agents.orchestrator
+
+databases:
+  - name: nexus-db
+    plan: free
+    databaseName: nexus

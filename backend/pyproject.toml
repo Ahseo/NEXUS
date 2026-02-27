@@ -1,0 +1,16 @@
+[project]
+name = "nexus-backend"
+version = "0.1.0"
+description = "NEXUS - Autonomous Networking Agent Backend"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
