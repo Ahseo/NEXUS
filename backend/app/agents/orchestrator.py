@@ -620,10 +620,15 @@ class NexusAgent:
                     {"role": "assistant", "content": assistant_content}
                 )
 
+                if not self.running:
+                    break
+
                 # Handle tool calls
                 if response.stop_reason == "tool_use":
                     tool_results: list[dict[str, Any]] = []
                     for block in response.content:
+                        if not self.running:
+                            break
                         if block.type == "tool_use":
                             logger.info(
                                 "[AGENT] Using tool: %s", block.name
@@ -639,7 +644,7 @@ class NexusAgent:
                                 }
                             )
 
-                            # Handle wait tool — actually sleep
+                            # Handle wait tool — sleep in chunks so pause works
                             if block.name == "wait":
                                 hours = float(block.input.get("hours", 1))  # type: ignore[union-attr]
                                 reason = block.input.get(  # type: ignore[union-attr]
@@ -650,7 +655,11 @@ class NexusAgent:
                                     hours,
                                     reason,
                                 )
-                                await asyncio.sleep(hours * 3600)
+                                remaining = hours * 3600
+                                while remaining > 0 and self.running:
+                                    chunk = min(remaining, 10)
+                                    await asyncio.sleep(chunk)
+                                    remaining -= chunk
 
                     self.conversation_history.append(
                         {"role": "user", "content": tool_results}
@@ -683,10 +692,16 @@ class NexusAgent:
 
             except anthropic.APIError as e:
                 logger.error("[AGENT] API error: %s. Recovering in 60s...", e)
-                await asyncio.sleep(60)
+                for _ in range(60):
+                    if not self.running:
+                        break
+                    await asyncio.sleep(1)
             except Exception as e:
                 logger.error("[AGENT] Error: %s. Recovering in 60s...", e)
-                await asyncio.sleep(60)
+                for _ in range(60):
+                    if not self.running:
+                        break
+                    await asyncio.sleep(1)
 
     def pause(self) -> None:
         self.running = False
@@ -788,14 +803,29 @@ class NexusAgent:
                 browse_result = result.get("result") or {}
                 payment_required = False
                 payment_amount = None
+                event_date = None
+                event_location = None
                 if isinstance(browse_result, dict):
                     payment_required = browse_result.get("payment_required", False)
                     payment_amount = browse_result.get("payment_amount")
+                    event_date = browse_result.get("date") or browse_result.get("event_date")
+                    event_location = browse_result.get("location") or browse_result.get("venue")
+                # Also try to get from the last analyzed event context
+                last_ctx = getattr(self, "_last_event_context", {})
+                if not event_date and isinstance(last_ctx, dict):
+                    event_date = last_ctx.get("date")
+                if not event_location and isinstance(last_ctx, dict):
+                    event_location = last_ctx.get("location")
+                event_data: dict[str, Any] = {"title": task_desc[:100], "url": url}
+                if event_date:
+                    event_data["date"] = event_date
+                if event_location:
+                    event_data["location"] = event_location
                 await self._ws_broadcast(
                     {
                         "type": "event:applied",
                         "data": {
-                            "event": {"title": task_desc[:100], "url": url},
+                            "event": event_data,
                             "status": result.get("status", "pending"),
                             "payment_required": payment_required,
                             "payment_amount": payment_amount,
@@ -1082,6 +1112,17 @@ class NexusAgent:
         notification_type = inp["type"]
         data = inp.get("data", {})
         priority = inp.get("priority", "medium")
+
+        # Cache event context for later use (e.g. when applying)
+        if notification_type == "event_suggested" and isinstance(data, dict):
+            ev = data.get("event", {})
+            if isinstance(ev, dict):
+                self._last_event_context = {
+                    "date": ev.get("date"),
+                    "location": ev.get("location"),
+                    "title": ev.get("title"),
+                    "url": ev.get("url"),
+                }
 
         # Map agent notify_user types to standard WS event types
         type_mapping: dict[str, str] = {

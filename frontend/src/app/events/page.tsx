@@ -109,6 +109,7 @@ export default function EventsPage() {
             if (ev?.start_date) eventDate = ev.start_date as string;
             if (!eventDate && typeof d.date === "string") eventDate = d.date;
             if (ev?.location) location = ev.location as string;
+            if (!location && typeof d.location === "string") location = d.location;
             if (ev?.description) description = ev.description as string;
             if (ev?.source) source = ev.source as string;
             if (ev?.price !== undefined) price = ev.price as number | null;
@@ -258,26 +259,31 @@ export default function EventsPage() {
                   onClick={() => setSelected(ev)}
                   className="flex min-w-0 flex-1 items-center gap-4"
                 >
-                  {/* Status badge */}
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold capitalize ${
-                      ev.status === "attended"
-                        ? "bg-green-100 text-green-700"
-                        : ev.paymentRequired
-                          ? "bg-orange-100 text-orange-600"
-                          : ev.status === "applied"
-                            ? "bg-[#1a1a1a] text-white"
-                            : ev.status === "analyzed"
-                              ? "bg-blue-50 text-blue-600"
-                              : ev.status === "scheduled"
-                                ? "bg-gray-200 text-gray-600"
-                                : "bg-gray-100 text-gray-500"
-                    }`}
-                  >
-                    {ev.status === "attended" ? "Attended" : ev.paymentRequired ? "Payment" : ev.status === "analyzed" ? "Recommended" : ev.status}
-                  </span>
+                  {/* Status badge + Score */}
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-semibold capitalize ${
+                        ev.status === "attended"
+                          ? "bg-green-100 text-green-700"
+                          : ev.paymentRequired
+                            ? "bg-orange-100 text-orange-600"
+                            : ev.status === "applied"
+                              ? "bg-[#1a1a1a] text-white"
+                              : ev.status === "analyzed"
+                                ? "bg-blue-50 text-blue-600"
+                                : ev.status === "scheduled"
+                                  ? "bg-gray-200 text-gray-600"
+                                  : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {ev.status === "attended" ? "Attended" : ev.paymentRequired ? "Payment" : ev.status === "analyzed" ? "Recommended" : ev.status}
+                    </span>
+                    {ev.score && (
+                      <span className="text-[10px] font-medium tabular-nums text-blue-500">Score {ev.score}</span>
+                    )}
+                  </div>
 
-                  {/* Info */}
+                  {/* Title */}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[14px] font-medium text-gray-900 transition-colors group-hover:text-gray-600">
                       {ev.title}
@@ -287,27 +293,33 @@ export default function EventsPage() {
                         {ev.why}
                       </p>
                     )}
-                    <div className="mt-1 flex items-center gap-3">
-                      {ev.eventDate && (
-                        <span className="flex items-center gap-1 text-[11px] font-medium text-orange-600">
-                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          {new Date(ev.eventDate).toLocaleDateString("en-US", { month: "short", day: "numeric", weekday: "short" })}
-                        </span>
-                      )}
-                      {ev.location && (
-                        <span className="text-[11px] text-gray-400">{ev.location}</span>
-                      )}
-                      {ev.price != null && (
-                        <span className={`text-[11px] font-medium ${ev.price === 0 ? "text-green-600" : "text-gray-500"}`}>
-                          {ev.price === 0 ? "Free" : `$${ev.price}`}
-                        </span>
-                      )}
-                      {ev.score && (
-                        <span className="text-[11px] font-medium text-blue-500">Score: {ev.score}</span>
-                      )}
-                    </div>
+                    {ev.applicationStatus && ev.applicationStatus !== "queued" && (
+                      <span className="mt-1 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold capitalize text-gray-500">
+                        {ev.applicationStatus}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Date / Location / Price */}
+                  <div className="hidden shrink-0 items-center gap-3 sm:flex">
+                    {ev.eventDate && (
+                      <span className="flex items-center gap-1 text-[11px] font-medium text-orange-600">
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {new Date(ev.eventDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </span>
+                    )}
+                    {ev.location && (
+                      <span className="max-w-[140px] truncate text-[11px] text-gray-400">
+                        {ev.location}
+                      </span>
+                    )}
+                    {ev.price != null && (
+                      <span className={`text-[11px] font-medium ${ev.price === 0 ? "text-green-600" : "text-gray-500"}`}>
+                        {ev.price === 0 ? "Free" : `$${ev.price}`}
+                      </span>
+                    )}
                   </div>
 
                   {/* URL indicator */}
@@ -599,13 +611,31 @@ function EventModal({ event, onClose, onAttend }: { event: EventEntry; onClose: 
           </div>
         )}
 
-        {/* Event Date */}
-        {eventDate && (
-          <div className="mb-3 flex items-center gap-2 rounded-xl bg-orange-50 px-3 py-2 text-[13px] font-medium text-orange-600">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            {new Date(eventDate).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+        {/* Event Date & Location */}
+        {(eventDate || event.location) && (
+          <div className="mb-3 space-y-2">
+            {eventDate && (
+              <div className="flex items-center gap-2 rounded-xl bg-orange-50 px-3 py-2 text-[13px] font-medium text-orange-600">
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {new Date(eventDate).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+              </div>
+            )}
+            {event.location && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+              >
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {event.location}
+              </a>
+            )}
           </div>
         )}
 
@@ -615,12 +645,12 @@ function EventModal({ event, onClose, onAttend }: { event: EventEntry; onClose: 
             href={eventUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mb-4 flex items-center gap-2 truncate text-[13px] text-gray-500 transition-colors hover:text-[#1a1a1a]"
+            className="mb-4 flex min-w-0 items-center gap-2 text-[13px] text-gray-500 transition-colors hover:text-[#1a1a1a]"
           >
             <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
             </svg>
-            {eventUrl}
+            <span className="truncate">{eventUrl}</span>
           </a>
         )}
 
@@ -664,17 +694,20 @@ function EventModal({ event, onClose, onAttend }: { event: EventEntry; onClose: 
           </div>
 
           {/* Application Status */}
-          {event.applicationStatus && (
-            <div className="rounded-xl bg-[#F7F7F4] p-3">
+          {(event.applicationStatus && event.applicationStatus !== "queued") && (
+            <div className="rounded-xl bg-[#F7F7F4] p-3 space-y-1.5">
               <p className="text-[11px] font-medium text-gray-400">Application Status</p>
-              <p className="text-[13px] font-medium capitalize text-gray-700">{event.applicationStatus}</p>
-            </div>
-          )}
-
-          {eventStatus && eventStatus !== event.status && !event.applicationStatus && (
-            <div className="rounded-xl bg-[#F7F7F4] p-3">
-              <p className="text-[11px] font-medium text-gray-400">Apply Status</p>
-              <p className="text-[13px] text-gray-700">{eventStatus}</p>
+              <p className="text-[13px] font-medium capitalize text-gray-700">
+                {event.applicationStatus}
+              </p>
+              {eventDate && (
+                <p className="text-[12px] text-gray-500">
+                  {new Date(eventDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                </p>
+              )}
+              {event.location && (
+                <p className="text-[12px] text-gray-500">{event.location}</p>
+              )}
             </div>
           )}
         </div>
