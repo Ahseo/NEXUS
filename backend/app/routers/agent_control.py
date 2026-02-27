@@ -41,6 +41,7 @@ async def get_agent_events(
             "source": r.source,
             "message": r.message,
             "detail": r.detail,
+            "data": r.data,
             "time": r.created_at.isoformat() if r.created_at else "",
         }
         for r in rows
