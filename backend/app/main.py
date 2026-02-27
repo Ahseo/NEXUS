@@ -4,6 +4,7 @@ from collections.abc import AsyncGenerator
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.agent_manager import agent_manager
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.core.websocket import manager
@@ -24,13 +25,18 @@ from app.routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    # Startup: recreate tables (hackathon convenience, use Alembic in prod)
+    # Startup: create tables if not exist (keeps data across restarts)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     print(f"[NEXUS] Starting in {settings.nexus_mode.value} mode")
+
+    # Start the background agent (runs for first onboarded user)
+    await agent_manager.start()
+
     yield
-    # Shutdown
+
+    # Shutdown: stop agent gracefully
+    await agent_manager.stop()
     print("[NEXUS] Shutting down")
 
 

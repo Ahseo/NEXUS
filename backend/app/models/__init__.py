@@ -1,3 +1,4 @@
+from app.models.agent_event import AgentEventDB
 from app.models.event import (
     ApplicationResult,
     EnrichedEvent,
@@ -43,6 +44,8 @@ from app.models.profile import (
 )
 
 __all__ = [
+    # Agent Event
+    "AgentEventDB",
     # Event
     "ApplicationResult",
     "EnrichedEvent",

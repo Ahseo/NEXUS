@@ -115,6 +115,15 @@ export const graph = {
 // Agent Control
 export const agent = {
   status: () => fetchApi("/api/agent/status"),
+  events: (params?: { limit?: number; source?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.source) qs.set("source", params.source);
+    const q = qs.toString();
+    return fetchApi<
+      { id: string; type: string; source: string; message: string; detail: string; time: string }[]
+    >(`/api/agent/events${q ? `?${q}` : ""}`);
+  },
   pause: () => fetchApi("/api/agent/pause", { method: "POST" }),
   resume: () => fetchApi("/api/agent/resume", { method: "POST" }),
   runNow: () => fetchApi("/api/agent/run-now", { method: "POST" }),

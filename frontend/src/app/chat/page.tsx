@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { chat } from "@/lib/api";
 
 interface Message {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "tool";
   content: string;
 }
 
@@ -12,6 +12,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [activeTool, setActiveTool] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Load history on mount
@@ -25,7 +26,7 @@ export default function ChatPage() {
   // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, activeTool]);
 
   const handleSend = async () => {
     const text = input.trim();
@@ -34,6 +35,7 @@ export default function ChatPage() {
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     setStreaming(true);
+    setActiveTool(null);
 
     // Add empty assistant message to fill in
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
@@ -58,7 +60,9 @@ export default function ChatPage() {
           if (!line.startsWith("data: ")) continue;
           try {
             const payload = JSON.parse(line.slice(6));
+
             if (payload.type === "text") {
+              setActiveTool(null);
               setMessages((prev) => {
                 const updated = [...prev];
                 const last = updated[updated.length - 1];
@@ -70,6 +74,36 @@ export default function ChatPage() {
                 }
                 return updated;
               });
+            } else if (payload.type === "tool_use") {
+              const toolName = payload.tool as string;
+              const query = payload.input?.query || "";
+              setActiveTool(toolName);
+
+              // Show tool usage in chat as a special message
+              setMessages((prev) => {
+                // Insert a tool message before the last assistant message
+                const updated = [...prev];
+                const lastIdx = updated.length - 1;
+                const last = updated[lastIdx];
+
+                // Only insert tool msg if the last assistant msg is still empty
+                if (last?.role === "assistant" && !last.content) {
+                  updated.splice(lastIdx, 0, {
+                    role: "tool",
+                    content: `Searching: ${query || toolName}`,
+                  });
+                } else {
+                  // Append after the current assistant message and add a new empty one
+                  updated.push({
+                    role: "tool",
+                    content: `Searching: ${query || toolName}`,
+                  });
+                  updated.push({ role: "assistant", content: "" });
+                }
+                return updated;
+              });
+            } else if (payload.type === "done") {
+              setActiveTool(null);
             }
           } catch {
             // ignore parse errors
@@ -90,6 +124,7 @@ export default function ChatPage() {
       });
     } finally {
       setStreaming(false);
+      setActiveTool(null);
     }
   };
 
@@ -108,9 +143,10 @@ export default function ChatPage() {
             chat.clear();
             setMessages([]);
           }}
-          className="rounded px-3 py-1 text-xs text-gray-500 transition hover:bg-gray-800 hover:text-gray-300"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 transition hover:border-indigo-500 hover:text-indigo-400"
         >
-          Clear
+          <span className="text-sm leading-none">+</span>
+          New Chat
         </button>
       </div>
 
@@ -144,27 +180,41 @@ export default function ChatPage() {
         )}
 
         <div className="space-y-4">
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
+          {messages.map((msg, i) => {
+            // Tool usage indicator
+            if (msg.role === "tool") {
+              return (
+                <div key={i} className="flex justify-start">
+                  <div className="flex items-center gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3 py-1.5 text-xs text-indigo-300">
+                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-indigo-400" />
+                    {msg.content}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
               <div
-                className={`max-w-[75%] rounded-lg px-4 py-2.5 text-sm whitespace-pre-wrap ${
-                  msg.role === "user"
-                    ? "bg-indigo-600 text-white"
-                    : "bg-gray-800 text-gray-200"
-                }`}
+                key={i}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
-                {msg.content}
-                {msg.role === "assistant" && !msg.content && streaming && (
-                  <span className="inline-block animate-pulse text-gray-500">
-                    Thinking...
-                  </span>
-                )}
+                <div
+                  className={`max-w-[75%] rounded-lg px-4 py-2.5 text-sm whitespace-pre-wrap ${
+                    msg.role === "user"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-gray-800 text-gray-200"
+                  }`}
+                >
+                  {msg.content}
+                  {msg.role === "assistant" && !msg.content && streaming && (
+                    <span className="inline-block animate-pulse text-gray-500">
+                      {activeTool ? `Using ${activeTool}...` : "Thinking..."}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           <div ref={bottomRef} />
         </div>
       </div>

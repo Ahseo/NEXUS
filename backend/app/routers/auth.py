@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import asyncio
+import logging
+import os
 import uuid
+
+# Allow OAuth over HTTP for local development
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+# Accept when Google grants fewer scopes than requested (e.g. calendar not approved)
+os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
 
 import bcrypt  # type: ignore[import-untyped]
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
-from google_auth_oauthlib.flow import Flow
+from google_auth_oauthlib.flow import Flow  # type: ignore[import-untyped]
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 
@@ -14,6 +22,8 @@ from app.core.config import settings
 from app.core.deps import CurrentUser, DbSession
 from app.core.google_auth import SCOPES
 from app.models.profile import UserProfileDB
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -139,7 +149,18 @@ async def google_login() -> RedirectResponse:
         prompt="consent",
         include_granted_scopes="true",
     )
-    return RedirectResponse(authorization_url)
+    response = RedirectResponse(authorization_url)
+    # Store PKCE code_verifier so the callback can use it
+    if flow.code_verifier:
+        response.set_cookie(
+            key="oauth_cv",
+            value=flow.code_verifier,
+            httponly=True,
+            samesite="lax",
+            max_age=600,
+            secure=False,
+        )
+    return response
 
 
 @router.get("/google/callback")
@@ -151,8 +172,24 @@ async def google_callback(request: Request, db: DbSession) -> RedirectResponse:
     - Set JWT cookie
     - Redirect: new user -> /onboarding, existing user -> /
     """
+    code = request.query_params.get("code")
+    if not code:
+        logger.error("OAuth callback missing code parameter")
+        return RedirectResponse(f"{settings.frontend_url}/login?error=missing_code")
+
     flow = _build_flow()
-    flow.fetch_token(code=request.query_params.get("code"))
+
+    # Restore PKCE code_verifier from cookie (set during /google redirect)
+    code_verifier = request.cookies.get("oauth_cv")
+
+    try:
+        # fetch_token is synchronous — run in thread to avoid blocking
+        await asyncio.to_thread(
+            flow.fetch_token, code=code, code_verifier=code_verifier
+        )
+    except Exception as e:
+        logger.exception("OAuth token exchange failed: %s", e)
+        return RedirectResponse(f"{settings.frontend_url}/login?error=token_exchange")
 
     credentials = flow.credentials
     # Get user info from Google
@@ -208,6 +245,7 @@ async def google_callback(request: Request, db: DbSession) -> RedirectResponse:
     redirect_path = "/onboarding" if is_new or not user.onboarding_completed else "/"
     response = RedirectResponse(f"{settings.frontend_url}{redirect_path}")
     _set_auth_cookie(response, token)
+    response.delete_cookie("oauth_cv")  # Clean up PKCE cookie
     return response
 
 

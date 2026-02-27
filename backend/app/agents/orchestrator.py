@@ -335,9 +335,8 @@ TOOL_NAMES: set[str] = {t["name"] for t in TOOLS}
 # ── System Prompt ────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = """You are NEXUS, an autonomous networking agent for {user_name}.
-You run 24/7. Your mission: discover relevant events in SF, apply to them,
-research attendees, find their social accounts, draft personalized messages,
-and learn from every interaction.
+You run 24/7. Your mission: discover relevant events in SF, APPLY to them,
+research attendees, find their social accounts, draft personalized messages.
 
 ## Your User
 - Name: {user_name}
@@ -353,39 +352,60 @@ and learn from every interaction.
 - Suggest threshold: {suggest_threshold}/100
 - Message tone: {message_tone}
 
-## Your Tools
-You have 13 tools. Use them in whatever order makes sense for the situation.
-You are NOT following a fixed script — think about what the user needs RIGHT NOW
-and pick the right tools.
+## CRITICAL: How to Apply to Events
+
+When you find a relevant event, you MUST apply using yutori_browse. This is the most
+important part of your job. Do NOT just discover events — ACT on them.
+
+**Step-by-step to apply to an event:**
+1. Find event URL from tavily_search results
+2. Use `yutori_browse` with:
+   - task: "Go to this event page and RSVP/register/apply. Fill in: Name: {user_name}, Email: {user_email}, Role: {user_role}, Company: {user_company}. Click the register/RSVP/attend button."
+   - start_url: the event URL (e.g. https://lu.ma/xxx or https://eventbrite.com/xxx)
+3. Save the event to Neo4j with neo4j_write
+4. Notify the user with notify_user
+
+**Example yutori_browse call for event registration:**
+```
+task: "Navigate to this Luma event page. Click 'Register' or 'RSVP' or 'Attend'. Fill in the registration form with: Name: {user_name}, Email: {user_email}, Company: {user_company}. Complete the registration."
+start_url: "https://lu.ma/example-event"
+```
+
+**Decision matrix (use this for EVERY event you find):**
+- Score 80-100: IMMEDIATELY use yutori_browse to apply + save to Neo4j
+- Score 50-79: Save to Neo4j + notify_user to suggest it
+- Score < 50: Skip (don't even save)
+
+Score an event by how well it matches the user's interests, goals, and preferred types.
+
+## How to Research Attendees
+
+After applying to an event, research who's attending:
+1. Use `yutori_browse` to scrape the attendee list from the event page
+   - task: "Go to this event page and extract the list of attendees/guests. Return their names, titles, and companies."
+   - start_url: event URL
+2. For interesting attendees, use `tavily_search` to research them
+3. Use `resolve_social_accounts` to find their LinkedIn, Twitter, etc.
+4. Save everything to Neo4j with `neo4j_write`
+5. Use `draft_message` to create a personalized pre-event message
 
 ## Rules
-1. NEVER auto-send a message. Always draft → notify user → wait for approval.
-2. When an event looks relevant (score > suggest_threshold), notify the user.
-3. When an event is very relevant (score > auto_apply_threshold), apply AND notify.
-4. Always check Google Calendar for conflicts before scheduling.
-5. When researching a person, keep digging until you have enough for a good message.
-   Don't stop at just a name and title — find their opinions, recent work, socials.
-6. Learn from feedback. If user rejects "Web3" events, stop suggesting them.
-7. After an event ends, generate follow-up messages for people worth connecting with.
-8. When you have nothing urgent, look for unresearched attendees at upcoming events.
-9. Save EVERYTHING to Neo4j — events, people, connections, feedback. The graph is
-   your long-term memory.
-10. Use Reka Vision to verify social accounts (same profile photo = same person).
+1. NEVER auto-send messages. Draft → notify user → wait for approval.
+2. After discovering events, IMMEDIATELY apply to the best ones. Do NOT just search endlessly.
+3. Always save events and people to Neo4j.
+4. Check Google Calendar for conflicts before scheduling.
+5. Learn from user feedback.
 
-## Your Loop
-You run forever. Each cycle:
-1. Check for user feedback (accepts, rejects, message edits)
-2. Process feedback → update preferences in Neo4j
-3. Search for new events
-4. Analyze & score each event
-5. Take action (apply, suggest, skip) based on score
-6. For confirmed events: research attendees, find socials, draft messages
-7. For ended events: draft follow-ups, save contacts
-8. Wait, then repeat
+## Your Cycle
+Each cycle you should:
+1. Search for upcoming events (tavily_search) — max 2-3 searches
+2. Score and APPLY to the best events (yutori_browse) — this is the key step!
+3. Research attendees at confirmed events
+4. Draft messages for interesting people
+5. Wait 1-2 hours, then repeat
 
-But you're smart — if step 3 finds nothing new, skip to step 6.
-If there are unresearched attendees, prioritize that over searching for new events.
-THINK about what's most valuable to do right now.
+IMPORTANT: Do NOT spend the whole cycle just searching. Search briefly, then APPLY.
+The user wants you to actually register for events, not just find them.
 """
 
 
@@ -461,6 +481,7 @@ class NexusAgent:
     def build_system_prompt(self) -> str:
         return SYSTEM_PROMPT.format(
             user_name=self.user.get("name", "User"),
+            user_email=self.user.get("email", ""),
             user_role=self.user.get("role", ""),
             user_company=self.user.get("company", ""),
             user_product=self.user.get("product_description", ""),
@@ -524,23 +545,27 @@ class NexusAgent:
             "[NEXUS] Mode: %s | Tools: %d", self.mode.value, len(TOOLS)
         )
 
-        # Initial kickoff message
-        self.conversation_history = [
-            {
-                "role": "user",
-                "content": (
-                    f"You just started. Current time: {datetime.now(timezone.utc).isoformat()}. "
-                    f"Begin your autonomous cycle. Check for any pending feedback, "
-                    f"then search for new events in SF. "
-                    f"Think step by step about what to do."
-                ),
-            }
-        ]
+        # Only set initial kickoff if no existing history (allows resume)
+        if not self.conversation_history:
+            self.conversation_history = [
+                {
+                    "role": "user",
+                    "content": (
+                        f"You just started. Current time: {datetime.now(timezone.utc).isoformat()}. "
+                        f"Begin your autonomous cycle:\n"
+                        f"1. Search for upcoming events in SF matching my interests (1-2 tavily_search calls)\n"
+                        f"2. Pick the most relevant events and APPLY to them using yutori_browse\n"
+                        f"3. Save applied events to Neo4j\n"
+                        f"4. Research attendees at applied events\n"
+                        f"Start now — search for events, then apply to the best ones."
+                    ),
+                }
+            ]
 
         while self.running:
             try:
                 response = await self._anthropic.messages.create(
-                    model="claude-sonnet-4-5-20250514",
+                    model="claude-opus-4-20250514",
                     max_tokens=4096,
                     system=self.build_system_prompt(),
                     tools=TOOLS,  # type: ignore[arg-type]
@@ -599,13 +624,16 @@ class NexusAgent:
                                 "[AGENT] Thinking: %s", block.text[:200]
                             )
 
-                    # Feed new cycle prompt
+                    # Feed new cycle prompt — push toward action
                     self.conversation_history.append(
                         {
                             "role": "user",
                             "content": (
                                 f"Current time: {datetime.now(timezone.utc).isoformat()}. "
-                                f"Continue your autonomous cycle. What should you do next?"
+                                f"Continue your cycle. If you found events, APPLY to the best ones "
+                                f"using yutori_browse NOW. If you already applied, research the "
+                                f"attendees. If you've done both, draft messages for interesting "
+                                f"people, then wait 1-2 hours."
                             ),
                         }
                     )
@@ -653,17 +681,158 @@ class NexusAgent:
                 "reason": "Daily limit reached in canary mode",
             }
 
+        # Broadcast tool start via WebSocket
+        if self._ws_broadcast:
+            await self._ws_broadcast(
+                {
+                    "type": "agent:status",
+                    "data": {
+                        "status": "running",
+                        "agent": "nexus",
+                        "tool": tool_name,
+                    },
+                }
+            )
+
         try:
             result = await self._dispatch_tool(tool_name, tool_input)
             # Increment counters for canary mode
             if tool_name == "yutori_browse":
                 self._applies_today += 1
+
+            # Broadcast tool-specific events
+            if self._ws_broadcast:
+                await self._broadcast_tool_event(tool_name, tool_input, result)
+
             return result
         except Exception as e:
             logger.error(
                 "[AGENT] Tool %s failed: %s", tool_name, e, exc_info=True
             )
             return {"error": str(e), "tool": tool_name}
+
+    async def _broadcast_tool_event(
+        self,
+        tool_name: str,
+        tool_input: dict[str, Any],
+        result: dict[str, Any],
+    ) -> None:
+        """Broadcast specific WebSocket events based on tool results."""
+        if not self._ws_broadcast:
+            return
+
+        if tool_name == "tavily_search":
+            count = len(result.get("results", []))
+            await self._ws_broadcast(
+                {
+                    "type": "event:discovered",
+                    "data": {
+                        "event": {"title": tool_input.get("query", "search")},
+                        "count": count,
+                        "agent": "nexus",
+                    },
+                }
+            )
+        elif tool_name == "yutori_browse":
+            task_desc = tool_input.get("task", "")
+            url = tool_input.get("start_url", "")
+            # If the task mentions apply/RSVP, it's an application
+            is_apply = any(
+                kw in task_desc.lower()
+                for kw in ["apply", "rsvp", "register", "sign up", "attend"]
+            )
+            if is_apply:
+                await self._ws_broadcast(
+                    {
+                        "type": "event:applied",
+                        "data": {
+                            "event": {"title": task_desc[:100], "url": url},
+                            "status": result.get("status", "pending"),
+                            "agent": "nexus",
+                        },
+                    }
+                )
+            else:
+                await self._ws_broadcast(
+                    {
+                        "type": "person:discovered",
+                        "data": {
+                            "person": {"name": f"Browsing: {task_desc[:80]}"},
+                            "url": url,
+                            "agent": "nexus",
+                        },
+                    }
+                )
+        elif tool_name == "yutori_scout":
+            await self._ws_broadcast(
+                {
+                    "type": "event:discovered",
+                    "data": {
+                        "event": {"title": f"Scout: {tool_input.get('task', '')[:80]}"},
+                        "agent": "nexus",
+                    },
+                }
+            )
+        elif tool_name == "neo4j_write":
+            await self._ws_broadcast(
+                {
+                    "type": "person:discovered",
+                    "data": {
+                        "person": {"name": "graph updated"},
+                        "agent": "nexus",
+                    },
+                }
+            )
+        elif tool_name == "neo4j_query":
+            count = result.get("count", 0)
+            await self._ws_broadcast(
+                {
+                    "type": "agent:status",
+                    "data": {
+                        "status": "running",
+                        "agent": "nexus",
+                        "tool": "neo4j_query",
+                        "detail": f"Found {count} records",
+                    },
+                }
+            )
+        elif tool_name == "draft_message":
+            await self._ws_broadcast(
+                {
+                    "type": "message:drafted",
+                    "data": {
+                        "channel": result.get("channel", ""),
+                        "type": result.get("message_type", ""),
+                        "agent": "nexus",
+                    },
+                }
+            )
+        elif tool_name == "resolve_social_accounts":
+            name = tool_input.get("name", "")
+            links = result.get("social_links", {})
+            found = [k for k, v in links.items() if v]
+            await self._ws_broadcast(
+                {
+                    "type": "person:discovered",
+                    "data": {
+                        "person": {"name": name},
+                        "socials_found": found,
+                        "agent": "nexus",
+                    },
+                }
+            )
+        elif tool_name == "google_calendar":
+            action = tool_input.get("action", "")
+            if action == "create_event":
+                await self._ws_broadcast(
+                    {
+                        "type": "event:scheduled",
+                        "data": {
+                            "event": tool_input.get("event_data", {}),
+                            "agent": "nexus",
+                        },
+                    }
+                )
 
     async def _dispatch_tool(
         self, tool_name: str, tool_input: dict[str, Any]

@@ -11,6 +11,7 @@ const navItems = [
   { href: "/people", label: "People", icon: "P" },
   { href: "/messages", label: "Messages", icon: "M" },
   { href: "/targets", label: "Targets", icon: "T" },
+  { href: "/activity", label: "Activity", icon: "A" },
   { href: "/settings", label: "Settings", icon: "S" },
 ];
 
