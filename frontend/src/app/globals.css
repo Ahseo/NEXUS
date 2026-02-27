@@ -68,6 +68,24 @@
   to { box-shadow: 0 0 12px rgba(249, 115, 22, 0.4); }
 }
 
+@keyframes orb-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(30px, -20px) scale(1.05); }
+  50% { transform: translate(-10px, 15px) scale(0.95); }
+  75% { transform: translate(-25px, -10px) scale(1.02); }
+}
+
+@keyframes logo-pop {
+  0% { opacity: 0; transform: scale(0.5) rotate(-12deg); }
+  60% { opacity: 1; transform: scale(1.08) rotate(2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+@keyframes letter-slide {
+  from { opacity: 0; transform: translateY(20px) skewY(4deg); }
+  to { opacity: 1; transform: translateY(0) skewY(0deg); }
+}
+
 /* ── Base ───────────────────────────────────────────── */
 
 body {

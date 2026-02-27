@@ -17,6 +17,24 @@ type FilterType = "all" | "background" | "chat";
 
 let wsNextId = 0;
 
+/* ── Badge helper ──────────────────────────────────── */
+
+function _typeBadge(type: string): { label: string; cls: string } {
+  const badges: Record<string, { label: string; cls: string }> = {
+    "event:discovered": { label: "Search", cls: "bg-violet-50 text-violet-600" },
+    "event:analyzed":   { label: "Score", cls: "bg-blue-50 text-blue-600" },
+    "event:applied":    { label: "Apply", cls: "bg-[#1a1a1a] text-white" },
+    "event:scheduled":  { label: "Calendar", cls: "bg-green-50 text-green-600" },
+    "person:discovered": { label: "Person", cls: "bg-cyan-50 text-cyan-600" },
+    "message:drafted":  { label: "Draft", cls: "bg-amber-50 text-amber-600" },
+    "message:sent":     { label: "Sent", cls: "bg-emerald-50 text-emerald-600" },
+    "agent:status":     { label: "Agent", cls: "bg-gray-100 text-gray-500" },
+    "target:found":     { label: "Target", cls: "bg-orange-50 text-orange-600" },
+    "target:updated":   { label: "Target", cls: "bg-orange-50 text-orange-500" },
+  };
+  return badges[type] ?? { label: type.split(":")[0] ?? type, cls: "bg-gray-50 text-gray-400" };
+}
+
 export default function ActivityPage() {
   const { user } = useAuth();
   const [connected, setConnected] = useState(false);
@@ -27,6 +45,17 @@ export default function ActivityPage() {
   const [paused, setPaused] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch real agent status on mount (so refresh doesn't show stale "idle")
+  useEffect(() => {
+    agent.status().then((raw: unknown) => {
+      const data = raw as Record<string, unknown>;
+      if (typeof data.status === "string") {
+        setAgentStatus(data.status);
+        setPaused(data.status === "paused");
+      }
+    }).catch(() => { /* ignore */ });
+  }, []);
 
   useEffect(() => {
     agent
@@ -218,32 +247,30 @@ export default function ActivityPage() {
           </div>
         ) : (
           <div className="divide-y divide-black/[0.03] stagger-children">
-            {filtered.map((a) => (
-              <div
-                key={a.id}
-                className="flex items-start gap-4 px-6 py-3 transition-colors duration-200 hover:bg-white/50"
-              >
-                <span className="mt-0.5 shrink-0 font-mono text-[11px] tabular-nums text-gray-300">
-                  {a.time}
-                </span>
-                <span
-                  className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                    a.source === "chat"
-                      ? "bg-gray-100 text-gray-500"
-                      : "bg-[#F7F7F4] text-gray-400"
-                  }`}
+            {filtered.map((a) => {
+              const badge = _typeBadge(a.type);
+              return (
+                <div
+                  key={a.id}
+                  className="flex items-start gap-3 px-6 py-3 transition-colors duration-200 hover:bg-white/50"
                 >
-                  {a.source === "chat" ? "chat" : "bg"}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] text-gray-700">{a.message}</p>
-                  {a.detail && (
-                    <p className="mt-0.5 truncate text-[11px] text-gray-400">{a.detail}</p>
-                  )}
+                  <span className="mt-0.5 shrink-0 font-mono text-[11px] tabular-nums text-gray-300">
+                    {a.time}
+                  </span>
+                  <span
+                    className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${badge.cls}`}
+                  >
+                    {badge.label}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] text-gray-700">{a.message}</p>
+                    {a.detail && (
+                      <p className="mt-0.5 truncate text-[11px] text-gray-400">{a.detail}</p>
+                    )}
+                  </div>
                 </div>
-                <span className="shrink-0 text-[10px] text-gray-300">{a.type}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

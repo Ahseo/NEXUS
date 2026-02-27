@@ -7,66 +7,135 @@ interface EventEntry {
   id: string;
   title: string;
   url: string;
-  status: "discovered" | "applied" | "scheduled";
+  status: "discovered" | "applied" | "scheduled" | "analyzed";
   score?: string;
   detail: string;
   time: string;
   eventDate?: string;
+  location?: string;
+  description?: string;
+  source?: string;
+  price?: number | null;
+  topics?: string[];
+  speakers?: string[];
+  paymentRequired?: boolean;
+  paymentAmount?: number | null;
+  applicationStatus?: string;
+  why?: string;
   data: Record<string, unknown> | null;
 }
 
 export default function EventsPage() {
   const [events, setEvents] = useState<EventEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "discovered" | "applied" | "scheduled">("all");
+  const [filter, setFilter] = useState<"all" | "discovered" | "applied" | "scheduled" | "analyzed">("all");
   const [selected, setSelected] = useState<EventEntry | null>(null);
 
   useEffect(() => {
     agent
       .events({ limit: 500 })
       .then((data) => {
-        const eventTypes = ["event:discovered", "event:applied", "event:scheduled"];
-        const parsed: EventEntry[] = data
-          .filter((e) => eventTypes.includes(e.type))
-          .map((e) => {
-            const status = e.type.split(":")[1] as EventEntry["status"];
-            let title = e.message;
-            title = title
-              .replace(/^Found event:\s*/, "")
-              .replace(/^Applied to:\s*/, "")
-              .replace(/^Scheduled:\s*/, "");
+        const eventTypes = ["event:discovered", "event:applied", "event:scheduled", "event:analyzed"];
+        const parsed: EventEntry[] = [];
 
-            let url = "";
-            const d = e.data as Record<string, unknown> | null;
-            if (d) {
-              const ev = d.event as Record<string, string> | undefined;
-              if (ev?.url) url = ev.url;
-            }
-            if (!url && e.detail && e.detail.startsWith("http")) {
-              url = e.detail;
-            }
+        for (const e of data) {
+          if (!eventTypes.includes(e.type)) continue;
 
-            // Extract event date from data
-            let eventDate: string | undefined;
-            if (d) {
-              const ev = d.event as Record<string, string> | undefined;
-              if (ev?.date) eventDate = ev.date;
-              if (ev?.start_date) eventDate = ev.start_date;
-              if (!eventDate && typeof d.date === "string") eventDate = d.date;
-            }
+          const status = e.type.split(":")[1] as EventEntry["status"];
+          const d = e.data as Record<string, unknown> | null;
+          const time = e.time ? new Date(e.time).toLocaleString() : "";
 
-            return {
-              id: e.id,
-              title,
-              url,
-              status,
-              score: e.detail?.replace("Count: ", "").replace("Score: ", ""),
-              detail: e.detail,
-              time: e.time ? new Date(e.time).toLocaleString() : "",
-              eventDate,
-              data: d,
-            };
+          // For discovered events, flatten search results into individual entries
+          if (status === "discovered" && d) {
+            const rawResults = (d.search_results ?? d.results ?? []) as Record<string, unknown>[];
+            if (Array.isArray(rawResults) && rawResults.length > 0) {
+              for (let i = 0; i < rawResults.length; i++) {
+                const r = rawResults[i];
+                parsed.push({
+                  id: `${e.id}-r${i}`,
+                  title: (r.title as string) || "Untitled",
+                  url: (r.url as string) || "",
+                  status: "discovered",
+                  detail: "",
+                  time,
+                  description: (r.content as string) || undefined,
+                  data: d,
+                });
+              }
+              continue; // skip the parent "discovered" entry
+            }
+          }
+
+          // Non-discovered or discovered without results — parse normally
+          let title = e.message;
+          title = title
+            .replace(/^Found event:\s*/, "")
+            .replace(/^Applied to:\s*/, "")
+            .replace(/^Scheduled:\s*/, "")
+            .replace(/^Recommended:\s*/, "")
+            .replace(/^Payment required:\s*/, "")
+            .replace(/\s*\(Score:.*\)$/, "");
+
+          let url = "";
+          if (d) {
+            const ev = d.event as Record<string, string> | undefined;
+            if (ev?.url) url = ev.url;
+          }
+          if (!url && e.detail && e.detail.startsWith("http")) {
+            url = e.detail;
+          }
+
+          let eventDate: string | undefined;
+          let location: string | undefined;
+          let description: string | undefined;
+          let source: string | undefined;
+          let price: number | null | undefined;
+          let topics: string[] | undefined;
+          let speakers: string[] | undefined;
+          let paymentRequired: boolean | undefined;
+          let paymentAmount: number | null | undefined;
+          let applicationStatus: string | undefined;
+          let why: string | undefined;
+
+          if (d) {
+            const ev = d.event as Record<string, unknown> | undefined;
+            if (ev?.date) eventDate = ev.date as string;
+            if (ev?.start_date) eventDate = ev.start_date as string;
+            if (!eventDate && typeof d.date === "string") eventDate = d.date;
+            if (ev?.location) location = ev.location as string;
+            if (ev?.description) description = ev.description as string;
+            if (ev?.source) source = ev.source as string;
+            if (ev?.price !== undefined) price = ev.price as number | null;
+            if (Array.isArray(ev?.topics)) topics = ev.topics as string[];
+            if (Array.isArray(ev?.speakers)) speakers = ev.speakers as string[];
+            if (d.payment_required !== undefined) paymentRequired = d.payment_required as boolean;
+            if (d.payment_amount !== undefined) paymentAmount = d.payment_amount as number | null;
+            if (typeof d.application_status === "string") applicationStatus = d.application_status;
+            if (typeof d.why === "string") why = d.why;
+          }
+
+          parsed.push({
+            id: e.id,
+            title,
+            url,
+            status,
+            score: d?.score != null ? String(d.score) : e.detail?.replace("Count: ", "").replace("Score: ", ""),
+            detail: e.detail,
+            time,
+            eventDate,
+            location,
+            description,
+            source,
+            price,
+            topics,
+            speakers,
+            paymentRequired,
+            paymentAmount,
+            applicationStatus,
+            why,
+            data: d,
           });
+        }
         setEvents(parsed);
         setLoading(false);
       })
@@ -79,6 +148,7 @@ export default function EventsPage() {
   });
 
   const discoveredCount = events.filter((e) => e.status === "discovered").length;
+  const analyzedCount = events.filter((e) => e.status === "analyzed").length;
   const appliedCount = events.filter((e) => e.status === "applied").length;
   const scheduledCount = events.filter((e) => e.status === "scheduled").length;
 
@@ -91,9 +161,10 @@ export default function EventsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 border-b border-black/[0.04] px-6 py-4 stagger-children">
+      <div className="grid grid-cols-4 gap-4 border-b border-black/[0.04] px-6 py-4 stagger-children">
         {[
           { label: "Discovered", value: discoveredCount },
+          { label: "Recommended", value: analyzedCount },
           { label: "Applied", value: appliedCount },
           { label: "Scheduled", value: scheduledCount },
         ].map((s) => (
@@ -109,19 +180,22 @@ export default function EventsPage() {
 
       {/* Filter tabs */}
       <div className="flex gap-1.5 border-b border-black/[0.04] px-6 py-3">
-        {(["all", "discovered", "applied", "scheduled"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`rounded-full px-3.5 py-1.5 text-[12px] font-medium capitalize transition-all duration-200 ${
-              filter === f
-                ? "bg-[#1a1a1a] text-white shadow-sm"
-                : "text-gray-400 hover:bg-black/[0.04] hover:text-gray-600"
-            }`}
-          >
-            {f === "all" ? `All (${events.length})` : `${f} (${events.filter((e) => e.status === f).length})`}
-          </button>
-        ))}
+        {(["all", "discovered", "analyzed", "applied", "scheduled"] as const).map((f) => {
+          const label = f === "analyzed" ? "Recommended" : f;
+          return (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`rounded-full px-3.5 py-1.5 text-[12px] font-medium capitalize transition-all duration-200 ${
+                filter === f
+                  ? "bg-[#1a1a1a] text-white shadow-sm"
+                  : "text-gray-400 hover:bg-black/[0.04] hover:text-gray-600"
+              }`}
+            >
+              {f === "all" ? `All (${events.length})` : `${label} (${events.filter((e) => e.status === f).length})`}
+            </button>
+          );
+        })}
       </div>
 
       {/* Event list */}
@@ -151,17 +225,21 @@ export default function EventsPage() {
                 onClick={() => setSelected(ev)}
                 className="group flex w-full items-center gap-4 rounded-2xl border border-black/[0.04] bg-white px-5 py-4 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-all duration-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] hover:-translate-y-0.5"
               >
-                {/* Status */}
+                {/* Status badge */}
                 <span
                   className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold capitalize ${
-                    ev.status === "applied"
-                      ? "bg-[#1a1a1a] text-white"
-                      : ev.status === "scheduled"
-                        ? "bg-gray-200 text-gray-600"
-                        : "bg-gray-100 text-gray-500"
+                    ev.paymentRequired
+                      ? "bg-orange-100 text-orange-600"
+                      : ev.status === "applied"
+                        ? "bg-[#1a1a1a] text-white"
+                        : ev.status === "analyzed"
+                          ? "bg-blue-50 text-blue-600"
+                          : ev.status === "scheduled"
+                            ? "bg-gray-200 text-gray-600"
+                            : "bg-gray-100 text-gray-500"
                   }`}
                 >
-                  {ev.status}
+                  {ev.paymentRequired ? "Payment" : ev.status === "analyzed" ? "Recommended" : ev.status}
                 </span>
 
                 {/* Info */}
@@ -169,6 +247,11 @@ export default function EventsPage() {
                   <p className="truncate text-[14px] font-medium text-gray-900 transition-colors group-hover:text-gray-600">
                     {ev.title}
                   </p>
+                  {ev.why && (
+                    <p className="mt-0.5 truncate text-[12px] italic text-gray-400">
+                      {ev.why}
+                    </p>
+                  )}
                   <div className="mt-1 flex items-center gap-3">
                     {ev.eventDate && (
                       <span className="flex items-center gap-1 text-[11px] font-medium text-orange-600">
@@ -178,11 +261,26 @@ export default function EventsPage() {
                         {new Date(ev.eventDate).toLocaleDateString("en-US", { month: "short", day: "numeric", weekday: "short" })}
                       </span>
                     )}
-                    {ev.detail && (
-                      <span className="truncate text-[11px] text-gray-400">{ev.detail}</span>
+                    {ev.location && (
+                      <span className="text-[11px] text-gray-400">{ev.location}</span>
+                    )}
+                    {ev.price != null && (
+                      <span className={`text-[11px] font-medium ${ev.price === 0 ? "text-green-600" : "text-gray-500"}`}>
+                        {ev.price === 0 ? "Free" : `$${ev.price}`}
+                      </span>
+                    )}
+                    {ev.score && (
+                      <span className="text-[11px] font-medium text-blue-500">Score: {ev.score}</span>
                     )}
                   </div>
                 </div>
+
+                {/* Payment badge */}
+                {ev.paymentRequired && (
+                  <span className="shrink-0 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-600">
+                    ${ev.paymentAmount ?? "?"}
+                  </span>
+                )}
 
                 {/* URL indicator */}
                 {ev.url && (
@@ -220,7 +318,6 @@ function EventModal({ event, onClose }: { event: EventEntry; onClose: () => void
   const eventDate = (ev.date as string) || (ev.start_date as string) || event.eventDate;
   const count = d.count as number | undefined;
   const score = d.score as number | undefined;
-  const results = (d.results ?? d.search_results ?? []) as Record<string, unknown>[];
 
   return (
     <div
@@ -243,14 +340,47 @@ function EventModal({ event, onClose }: { event: EventEntry; onClose: () => void
 
         {/* Status + Time */}
         <div className="mb-4 flex items-center gap-2">
-          <span className="rounded-full bg-[#1a1a1a] px-2.5 py-1 text-[10px] font-semibold capitalize text-white">
-            {event.status}
+          <span
+            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold capitalize ${
+              event.paymentRequired
+                ? "bg-orange-100 text-orange-600"
+                : event.status === "applied"
+                  ? "bg-[#1a1a1a] text-white"
+                  : event.status === "analyzed"
+                    ? "bg-blue-50 text-blue-600"
+                    : "bg-gray-100 text-gray-500"
+            }`}
+          >
+            {event.paymentRequired ? "Payment Required" : event.status === "analyzed" ? "Recommended" : event.status}
           </span>
           <span className="text-[11px] text-gray-400">{event.time}</span>
         </div>
 
+        {/* Payment Required Warning */}
+        {event.paymentRequired && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl bg-orange-50 border border-orange-200 px-4 py-3">
+            <svg className="h-5 w-5 shrink-0 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+              <p className="text-[13px] font-semibold text-orange-700">Payment Required</p>
+              <p className="text-[12px] text-orange-600">
+                This event requires payment{event.paymentAmount ? ` — $${event.paymentAmount}` : ""}. Registration was paused.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Title */}
         <h2 className="mb-2 text-lg font-bold text-gray-900">{eventTitle}</h2>
+
+        {/* Why Recommended */}
+        {event.why && (
+          <div className="mb-3 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3">
+            <p className="text-[11px] font-semibold text-blue-500 mb-1">Why Recommended</p>
+            <p className="text-[13px] text-blue-700">{event.why}</p>
+          </div>
+        )}
 
         {/* Event Date */}
         {eventDate && (
@@ -277,14 +407,16 @@ function EventModal({ event, onClose }: { event: EventEntry; onClose: () => void
           </a>
         )}
 
+        {/* Description */}
+        {event.description && (
+          <div className="mb-4 rounded-xl bg-[#F7F7F4] p-3">
+            <p className="text-[11px] font-medium text-gray-400">Description</p>
+            <p className="mt-1 text-[13px] text-gray-700">{event.description}</p>
+          </div>
+        )}
+
         {/* Meta */}
         <div className="mb-4 space-y-2">
-          {event.detail && (
-            <div className="rounded-xl bg-[#F7F7F4] p-3">
-              <p className="text-[11px] font-medium text-gray-400">Detail</p>
-              <p className="text-[13px] text-gray-700">{event.detail}</p>
-            </div>
-          )}
           <div className="grid grid-cols-2 gap-2">
             {count != null && (
               <div className="rounded-xl bg-[#F7F7F4] p-3">
@@ -298,8 +430,31 @@ function EventModal({ event, onClose }: { event: EventEntry; onClose: () => void
                 <p className="text-lg font-bold text-gray-900">{score}</p>
               </div>
             )}
+            {event.location && (
+              <div className="rounded-xl bg-[#F7F7F4] p-3">
+                <p className="text-[11px] font-medium text-gray-400">Location</p>
+                <p className="text-[13px] text-gray-700">{event.location}</p>
+              </div>
+            )}
+            {event.price != null && (
+              <div className="rounded-xl bg-[#F7F7F4] p-3">
+                <p className="text-[11px] font-medium text-gray-400">Price</p>
+                <p className={`text-lg font-bold ${event.price === 0 ? "text-green-600" : "text-gray-900"}`}>
+                  {event.price === 0 ? "Free" : `$${event.price}`}
+                </p>
+              </div>
+            )}
           </div>
-          {eventStatus && eventStatus !== event.status && (
+
+          {/* Application Status */}
+          {event.applicationStatus && (
+            <div className="rounded-xl bg-[#F7F7F4] p-3">
+              <p className="text-[11px] font-medium text-gray-400">Application Status</p>
+              <p className="text-[13px] font-medium capitalize text-gray-700">{event.applicationStatus}</p>
+            </div>
+          )}
+
+          {eventStatus && eventStatus !== event.status && !event.applicationStatus && (
             <div className="rounded-xl bg-[#F7F7F4] p-3">
               <p className="text-[11px] font-medium text-gray-400">Apply Status</p>
               <p className="text-[13px] text-gray-700">{eventStatus}</p>
@@ -307,49 +462,30 @@ function EventModal({ event, onClose }: { event: EventEntry; onClose: () => void
           )}
         </div>
 
-        {/* Search Results */}
-        {results.length > 0 && (
+        {/* Topics */}
+        {event.topics && event.topics.length > 0 && (
           <div className="mb-4">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              Search Results ({results.length})
-            </p>
-            <div className="space-y-2 stagger-children">
-              {results.map((r, i) => (
-                <div key={i} className="rounded-xl border border-black/[0.04] bg-[#F7F7F4] p-3">
-                  <p className="text-[13px] font-medium text-gray-900">
-                    {(r.title as string) || "Untitled"}
-                  </p>
-                  {typeof r.url === "string" && r.url && (
-                    <a
-                      href={r.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-0.5 block truncate text-[11px] text-gray-400 transition-colors hover:text-gray-600"
-                    >
-                      {r.url}
-                    </a>
-                  )}
-                  {typeof r.content === "string" && r.content && (
-                    <p className="mt-1 text-[12px] text-gray-500 line-clamp-3">
-                      {r.content}
-                    </p>
-                  )}
-                </div>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Topics</p>
+            <div className="flex flex-wrap gap-1.5">
+              {event.topics.map((t, i) => (
+                <span key={i} className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-600">
+                  {t}
+                </span>
               ))}
             </div>
           </div>
         )}
 
-        {/* Raw Data */}
-        {event.data && Object.keys(event.data).length > 0 && (
-          <details className="mt-4">
-            <summary className="cursor-pointer text-[11px] text-gray-400 transition-colors hover:text-gray-600">
-              Raw Data
-            </summary>
-            <pre className="mt-2 max-h-48 overflow-auto rounded-xl bg-[#F7F7F4] p-3 text-[11px] text-gray-500">
-              {JSON.stringify(event.data, null, 2)}
-            </pre>
-          </details>
+        {/* Speakers */}
+        {event.speakers && event.speakers.length > 0 && (
+          <div className="mb-4">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Speakers</p>
+            <div className="space-y-1">
+              {event.speakers.map((s, i) => (
+                <p key={i} className="text-[13px] text-gray-700">{s}</p>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Actions */}

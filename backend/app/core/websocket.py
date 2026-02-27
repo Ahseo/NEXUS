@@ -91,12 +91,16 @@ def _format_event(event_type: str, data: Any) -> tuple[str, str]:
             f"Count: {d.get('count', '-')}",
         ),
         "event:analyzed": lambda d: (
-            f"Analyzed: {_nested(d, 'event', 'title', 'event')}",
-            f"Score: {d.get('score', '-')}",
+            f"Recommended: {_nested(d, 'event', 'title', 'event')} (Score: {d.get('score', '-')})",
+            d.get("why", ""),
         ),
         "event:applied": lambda d: (
-            f"Applied to: {_nested(d, 'event', 'title', 'event')}",
-            "",
+            (
+                f"Payment required: {_nested(d, 'event', 'title', 'event')}"
+                if d.get("payment_required")
+                else f"Applied to: {_nested(d, 'event', 'title', 'event')}"
+            ),
+            f"Amount: ${d['payment_amount']}" if d.get("payment_amount") else "",
         ),
         "event:scheduled": lambda d: (
             f"Scheduled: {_nested(d, 'event', 'title', 'event')}",

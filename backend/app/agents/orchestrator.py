@@ -334,7 +334,7 @@ TOOL_NAMES: set[str] = {t["name"] for t in TOOLS}
 
 # ── System Prompt ────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are NEXUS, an autonomous networking agent for {user_name}.
+SYSTEM_PROMPT = """You are Wingman, an autonomous networking agent for {user_name}.
 You run 24/7. Your mission: discover relevant events in SF, APPLY to them,
 research attendees, find their social accounts, draft personalized messages.
 
@@ -360,15 +360,28 @@ important part of your job. Do NOT just discover events — ACT on them.
 **Step-by-step to apply to an event:**
 1. Find event URL from tavily_search results
 2. Use `yutori_browse` with:
-   - task: "Go to this event page and RSVP/register/apply. Fill in: Name: {user_name}, Email: {user_email}, Role: {user_role}, Company: {user_company}. Click the register/RSVP/attend button."
+   - task: (see example below)
    - start_url: the event URL (e.g. https://lu.ma/xxx or https://eventbrite.com/xxx)
+   - output_schema: {{"status": "string", "confirmation_id": "string", "payment_required": "boolean", "payment_amount": "number"}}
 3. Save the event to Neo4j with neo4j_write
 4. Notify the user with notify_user
 
 **Example yutori_browse call for event registration:**
 ```
-task: "Navigate to this Luma event page. Click 'Register' or 'RSVP' or 'Attend'. Fill in the registration form with: Name: {user_name}, Email: {user_email}, Company: {user_company}. Complete the registration."
+task: "Navigate through ALL registration sub-pages. Fill in: Name: {user_name}, Email: {user_email}, Company: {user_company}.
+
+CRITICAL — PAYMENT DETECTION: Before clicking any final submit/confirm button, CHECK the page for ANY of these signs:
+- A price shown (e.g. '$25', '€10', 'USD 50', any currency amount)
+- Words like 'checkout', 'payment', 'billing', 'credit card', 'debit card', 'purchase', 'order summary', 'total', 'pay now'
+- A Stripe, PayPal, Square, or payment iframe/widget
+- Eventbrite 'Place Order' button with a non-zero total
+- Ticket types with prices (even if one is free, check which one is selected)
+- 'Add to cart' or 'Buy tickets' buttons
+
+If ANY payment indicator is found: STOP. Do NOT proceed. Set payment_required=true and payment_amount to the displayed price.
+If the event is truly free (price shows $0.00 or 'Free'): proceed with registration and set payment_required=false."
 start_url: "https://lu.ma/example-event"
+output_schema: {{"status": "string", "confirmation_id": "string", "payment_required": "boolean", "payment_amount": "number"}}
 ```
 
 **Decision matrix (use this for EVERY event you find):**
@@ -377,6 +390,33 @@ start_url: "https://lu.ma/example-event"
 - Score < 50: Skip (don't even save)
 
 Score an event by how well it matches the user's interests, goals, and preferred types.
+
+## How to Report Event Recommendations
+
+When you find events via tavily_search, call `notify_user` for EACH event worth recommending:
+- type: "event_suggested"
+- data must include:
+  - event.title: Event name
+  - event.url: Event page URL
+  - event.date: Event date (ISO or readable)
+  - event.location: Venue or "Online"
+  - event.source: Platform (e.g. "luma", "eventbrite", "meetup")
+  - event.price: 0 for free events, dollar amount as number, null if unknown
+  - event.description: 1-2 sentence description of the event
+  - event.topics: Array of relevant topic tags
+  - event.speakers: Array of notable speakers (if known)
+  - score: Your relevance score (0-100)
+  - why: 1-2 sentence explanation of why this event is relevant to the user
+
+## How to Report After Applying
+
+After yutori_browse completes an event application, you MUST call `notify_user`:
+- type: "event_applied"
+- data must include:
+  - event.title, event.url, event.date, event.location, event.source, event.price
+  - application_status: "applied", "waitlisted", "failed", or "payment_required"
+  - payment_required: boolean (true if checkout/payment page was encountered)
+  - payment_amount: number or null
 
 ## How to Research Attendees
 
@@ -688,7 +728,7 @@ class NexusAgent:
                     "type": "agent:status",
                     "data": {
                         "status": "running",
-                        "agent": "nexus",
+                        "agent": "wingman",
                         "tool": tool_name,
                     },
                 }
@@ -722,14 +762,17 @@ class NexusAgent:
             return
 
         if tool_name == "tavily_search":
-            count = len(result.get("results", []))
+            raw_results = result.get("results", [])
+            count = len(raw_results)
+            top_results = raw_results[:5]
             await self._ws_broadcast(
                 {
                     "type": "event:discovered",
                     "data": {
                         "event": {"title": tool_input.get("query", "search")},
                         "count": count,
-                        "agent": "nexus",
+                        "search_results": top_results,
+                        "agent": "wingman",
                     },
                 }
             )
@@ -742,13 +785,21 @@ class NexusAgent:
                 for kw in ["apply", "rsvp", "register", "sign up", "attend"]
             )
             if is_apply:
+                browse_result = result.get("result") or {}
+                payment_required = False
+                payment_amount = None
+                if isinstance(browse_result, dict):
+                    payment_required = browse_result.get("payment_required", False)
+                    payment_amount = browse_result.get("payment_amount")
                 await self._ws_broadcast(
                     {
                         "type": "event:applied",
                         "data": {
                             "event": {"title": task_desc[:100], "url": url},
                             "status": result.get("status", "pending"),
-                            "agent": "nexus",
+                            "payment_required": payment_required,
+                            "payment_amount": payment_amount,
+                            "agent": "wingman",
                         },
                     }
                 )
@@ -759,7 +810,7 @@ class NexusAgent:
                         "data": {
                             "person": {"name": f"Browsing: {task_desc[:80]}"},
                             "url": url,
-                            "agent": "nexus",
+                            "agent": "wingman",
                         },
                     }
                 )
@@ -769,7 +820,7 @@ class NexusAgent:
                     "type": "event:discovered",
                     "data": {
                         "event": {"title": f"Scout: {tool_input.get('task', '')[:80]}"},
-                        "agent": "nexus",
+                        "agent": "wingman",
                     },
                 }
             )
@@ -779,7 +830,7 @@ class NexusAgent:
                     "type": "person:discovered",
                     "data": {
                         "person": {"name": "graph updated"},
-                        "agent": "nexus",
+                        "agent": "wingman",
                     },
                 }
             )
@@ -790,7 +841,7 @@ class NexusAgent:
                     "type": "agent:status",
                     "data": {
                         "status": "running",
-                        "agent": "nexus",
+                        "agent": "wingman",
                         "tool": "neo4j_query",
                         "detail": f"Found {count} records",
                     },
@@ -803,7 +854,7 @@ class NexusAgent:
                     "data": {
                         "channel": result.get("channel", ""),
                         "type": result.get("message_type", ""),
-                        "agent": "nexus",
+                        "agent": "wingman",
                     },
                 }
             )
@@ -817,7 +868,7 @@ class NexusAgent:
                     "data": {
                         "person": {"name": name},
                         "socials_found": found,
-                        "agent": "nexus",
+                        "agent": "wingman",
                     },
                 }
             )
@@ -829,7 +880,7 @@ class NexusAgent:
                         "type": "event:scheduled",
                         "data": {
                             "event": tool_input.get("event_data", {}),
-                            "agent": "nexus",
+                            "agent": "wingman",
                         },
                     }
                 )
@@ -1032,11 +1083,22 @@ class NexusAgent:
         data = inp.get("data", {})
         priority = inp.get("priority", "medium")
 
+        # Map agent notify_user types to standard WS event types
+        type_mapping: dict[str, str] = {
+            "event_suggested": "event:analyzed",
+            "event_applied": "event:applied",
+        }
+        ws_type = type_mapping.get(notification_type, notification_type)
+
+        # Ensure agent field is set
+        if isinstance(data, dict):
+            data.setdefault("agent", "wingman")
+
         # Broadcast via WebSocket if available
         if self._ws_broadcast:
             await self._ws_broadcast(
                 {
-                    "type": notification_type,
+                    "type": ws_type,
                     "data": data,
                     "priority": priority,
                 }
@@ -1044,6 +1106,6 @@ class NexusAgent:
 
         return {
             "status": "notified",
-            "type": notification_type,
+            "type": ws_type,
             "priority": priority,
         }

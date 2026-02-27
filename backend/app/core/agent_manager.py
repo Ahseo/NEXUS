@@ -2,6 +2,8 @@
 
 Starts the agent as a background asyncio task, wires it to integration
 clients and WebSocket broadcasting, and exposes pause/resume/run-now controls.
+
+Agent state (paused/running) is persisted to DB so it survives restarts.
 """
 
 from __future__ import annotations
@@ -15,9 +17,12 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.database import async_session_factory
 from app.core.websocket import manager
+from app.models.agent_state import AgentStateDB
 from app.models.profile import UserProfileDB
 
 logger = logging.getLogger(__name__)
+
+_STATE_KEY = "agent_status"
 
 
 class AgentManager:
@@ -27,6 +32,37 @@ class AgentManager:
         self._agent: Any = None  # NexusAgent (lazy import to avoid circular)
         self._task: asyncio.Task[None] | None = None
         self._status = "idle"
+
+    # ── DB state helpers ───────────────────────────────────────────
+
+    async def _load_persisted_status(self) -> str | None:
+        """Read agent status from DB. Returns None if no row exists."""
+        try:
+            async with async_session_factory() as session:
+                result = await session.execute(
+                    select(AgentStateDB).where(AgentStateDB.key == _STATE_KEY)
+                )
+                row = result.scalar_one_or_none()
+                return row.value if row else None
+        except Exception:
+            logger.debug("Failed to read persisted agent state", exc_info=True)
+            return None
+
+    async def _persist_status(self, value: str) -> None:
+        """Upsert agent status to DB."""
+        try:
+            async with async_session_factory() as session:
+                result = await session.execute(
+                    select(AgentStateDB).where(AgentStateDB.key == _STATE_KEY)
+                )
+                row = result.scalar_one_or_none()
+                if row:
+                    row.value = value
+                else:
+                    session.add(AgentStateDB(key=_STATE_KEY, value=value))
+                await session.commit()
+        except Exception:
+            logger.debug("Failed to persist agent state", exc_info=True)
 
     # ── Properties ────────────────────────────────────────────────────
 
@@ -50,13 +86,50 @@ class AgentManager:
             logger.warning("Agent already running")
             return
 
+        # Check if agent was paused before restart
+        persisted = await self._load_persisted_status()
+        if persisted == "paused":
+            logger.info("[WINGMAN] Agent was paused — staying paused")
+            self._status = "paused"
+            # Still load the agent so resume works without full restart
+            await self._init_agent()
+            return
+
         user_profile = await self._load_user_profile()
         if not user_profile:
             logger.info("No onboarded user found — agent waiting")
             self._status = "waiting_for_user"
             return
 
-        # Lazy import to avoid circular dependency
+        await self._init_agent()
+        if not self._agent:
+            return
+
+        self._task = asyncio.create_task(self._run_agent())
+        self._status = "running"
+        await self._persist_status("running")
+
+        await manager.broadcast(
+            {
+                "type": "agent:status",
+                "data": {"status": "running", "agent": "wingman"},
+            }
+        )
+        logger.info(
+            "[WINGMAN] Background agent started for %s in %s mode",
+            self._agent.user.get("name", "?"),
+            settings.nexus_mode.value,
+        )
+
+    async def _init_agent(self) -> None:
+        """Initialize the agent instance (without starting the loop)."""
+        if self._agent:
+            return
+
+        user_profile = await self._load_user_profile()
+        if not user_profile:
+            return
+
         from app.agents.orchestrator import NexusAgent
         from app.integrations.neo4j_client import Neo4jClient
         from app.integrations.reka_client import RekaClient
@@ -86,7 +159,7 @@ class AgentManager:
                     password=settings.neo4j_password,
                 )
                 await neo4j.connect()
-                logger.info("[NEXUS] Neo4j connected")
+                logger.info("[WINGMAN] Neo4j connected")
             except Exception:
                 logger.warning("Neo4j client init/connect failed", exc_info=True)
                 neo4j = None
@@ -108,33 +181,19 @@ class AgentManager:
             mode=settings.nexus_mode,
         )
 
-        self._task = asyncio.create_task(self._run_agent())
-        self._status = "running"
-
-        await manager.broadcast(
-            {
-                "type": "agent:status",
-                "data": {"status": "running", "agent": "nexus"},
-            }
-        )
-        logger.info(
-            "[NEXUS] Background agent started for %s in %s mode",
-            user_profile.get("name", "?"),
-            settings.nexus_mode.value,
-        )
-
     async def _run_agent(self) -> None:
         try:
             await self._agent.run_forever()
         except asyncio.CancelledError:
-            logger.info("[NEXUS] Agent task cancelled")
+            logger.info("[WINGMAN] Agent task cancelled")
         except Exception:
-            logger.exception("[NEXUS] Agent crashed — will need manual restart")
+            logger.exception("[WINGMAN] Agent crashed — will need manual restart")
             self._status = "crashed"
+            await self._persist_status("crashed")
             await manager.broadcast(
                 {
                     "type": "agent:status",
-                    "data": {"status": "crashed", "agent": "nexus"},
+                    "data": {"status": "crashed", "agent": "wingman"},
                 }
             )
 
@@ -142,7 +201,6 @@ class AgentManager:
         """Gracefully stop the agent."""
         if self._agent:
             self._agent.pause()
-            # Disconnect Neo4j driver if connected
             if self._agent._neo4j:
                 try:
                     await self._agent._neo4j.disconnect()
@@ -155,35 +213,46 @@ class AgentManager:
             except asyncio.CancelledError:
                 pass
         self._status = "stopped"
+        await self._persist_status("stopped")
         await manager.broadcast(
             {
                 "type": "agent:status",
-                "data": {"status": "stopped", "agent": "nexus"},
+                "data": {"status": "stopped", "agent": "wingman"},
             }
         )
 
-    def pause(self) -> None:
+    async def pause(self) -> None:
         if self._agent:
             self._agent.pause()
             self._status = "paused"
+            await self._persist_status("paused")
+            await manager.broadcast(
+                {
+                    "type": "agent:status",
+                    "data": {"status": "paused", "agent": "wingman"},
+                }
+            )
 
     async def resume(self) -> None:
         if self._agent and self._task and self._task.done():
-            # Agent loop exited (was paused) — restart the task
             self._agent.running = True
             self._task = asyncio.create_task(self._run_agent())
             self._status = "running"
         elif self._agent:
             self._agent.running = True
             self._status = "running"
+            # Agent was paused but task not done yet — start the loop
+            if not self._task or self._task.done():
+                self._task = asyncio.create_task(self._run_agent())
         else:
-            # No agent yet — try to start
             await self.start()
+            return  # start() handles persist + broadcast
 
+        await self._persist_status("running")
         await manager.broadcast(
             {
                 "type": "agent:status",
-                "data": {"status": "running", "agent": "nexus"},
+                "data": {"status": "running", "agent": "wingman"},
             }
         )
 
@@ -193,7 +262,6 @@ class AgentManager:
             await self.start()
         elif self._task and self._task.done():
             await self.resume()
-        # If already running, the agent will naturally continue its cycle
 
     def get_status(self) -> dict[str, Any]:
         tools_available: list[str] = []

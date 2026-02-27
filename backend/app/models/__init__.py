@@ -1,4 +1,6 @@
 from app.models.agent_event import AgentEventDB
+from app.models.agent_state import AgentStateDB
+from app.models.chat import ChatMessageDB
 from app.models.event import (
     ApplicationResult,
     EnrichedEvent,
@@ -46,6 +48,10 @@ from app.models.profile import (
 __all__ = [
     # Agent Event
     "AgentEventDB",
+    # Agent State
+    "AgentStateDB",
+    # Chat
+    "ChatMessageDB",
     # Event
     "ApplicationResult",
     "EnrichedEvent",

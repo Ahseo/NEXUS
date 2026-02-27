@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthProvider";
+import { agent } from "@/lib/api";
 
 interface ActivityItem {
   id: number;
@@ -43,6 +44,16 @@ export default function AgentStatus() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch real agent status on mount (so refresh doesn't show stale "idle")
+  useEffect(() => {
+    agent.status().then((raw: unknown) => {
+      const data = raw as Record<string, unknown>;
+      if (typeof data.status === "string") {
+        setStatus(data.status);
+      }
+    }).catch(() => { /* ignore */ });
+  }, []);
 
   useEffect(() => {
     if (!user?.user_id) return;

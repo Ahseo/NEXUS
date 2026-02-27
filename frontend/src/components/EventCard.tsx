@@ -47,6 +47,21 @@ export default function EventCard({
               {sourceIcons[event.source] ?? "OT"}
             </span>
             <ScoreBadge score={event.relevance_score} />
+            {event.application_result?.status === "applied" && (
+              <span className="rounded-full bg-[#1a1a1a] px-2 py-0.5 text-[10px] font-semibold text-white">
+                Applied
+              </span>
+            )}
+            {event.application_result?.status === "payment_required" && (
+              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-600">
+                Payment Required
+              </span>
+            )}
+            {event.application_result?.status === "waitlisted" && (
+              <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold text-yellow-700">
+                Waitlisted
+              </span>
+            )}
             <span className="truncate text-[12px] text-gray-400">
               {event.event_type}
             </span>

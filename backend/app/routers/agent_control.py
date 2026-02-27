@@ -50,7 +50,7 @@ async def get_agent_events(
 
 @router.post("/pause", status_code=200)
 async def pause_agent() -> dict[str, str]:
-    agent_manager.pause()
+    await agent_manager.pause()
     return {"status": "paused"}
 
 
