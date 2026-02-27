@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NEXUS",
+  title: "WINGMAN",
   description: "Autonomous Networking Agent for SF",
 };
 

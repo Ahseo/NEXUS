@@ -82,9 +82,9 @@ export default function OnboardingPage() {
         {/* Header */}
         <div className="mb-8 text-center">
           <div className="mb-3 inline-flex animate-float">
-            <img src="/logo.svg" alt="NEXUS" className="h-12 w-auto" />
+            <img src="/logo.svg" alt="WINGMAN" className="h-12 w-auto" />
           </div>
-          <h1 className="text-2xl font-bold text-[#1a1a1a]">Set up NEXUS</h1>
+          <h1 className="text-2xl font-bold text-[#1a1a1a]">Set up WINGMAN</h1>
           <p className="mt-1 text-[13px] text-gray-400">Configure your networking agent</p>
         </div>
 

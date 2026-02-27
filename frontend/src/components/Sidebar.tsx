@@ -91,9 +91,9 @@ export default function Sidebar() {
     <aside className="flex h-screen w-56 flex-col bg-[#EDECE7]">
       {/* Brand */}
       <div className="flex h-14 items-center gap-2.5 px-5">
-        <Image src="/logo.svg" alt="NEXUS" width={24} height={26} />
+        <Image src="/logo.svg" alt="WINGMAN" width={24} height={26} />
         <span className="text-[15px] font-semibold tracking-tight text-[#1a1a1a]">
-          NEXUS
+          WINGMAN
         </span>
       </div>
 

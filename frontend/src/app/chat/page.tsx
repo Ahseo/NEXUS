@@ -147,7 +147,7 @@ export default function ChatPage() {
         {messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center animate-fade-in">
             <div className="mb-5 flex h-16 w-16 items-center justify-center animate-float opacity-20">
-              <img src="/logo.svg" alt="NEXUS" className="h-12 w-auto" />
+              <img src="/logo.svg" alt="WINGMAN" className="h-12 w-auto" />
             </div>
             <p className="text-sm text-gray-400">
               Start a conversation with your agent
