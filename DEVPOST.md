@@ -1,10 +1,8 @@
 ## Inspiration
 
-You RSVP to a Luma event. You check the attendee list — 80 people going. Most have no profile picture, no bio, just a name. You show up anyway, spend 3 hours making small talk, and walk out realizing more than half the room had nothing to do with what you're building. The 2-3 people you actually needed to meet? You walked right past them because you had no idea who they were.
+A venture partner who could write your first check is standing ten feet away from you. You don't know. You're talking to someone who has nothing to do with what you're building, because you walked into this room blind — just like everyone else.
 
-This happens every week in SF. Hundreds of events, and even when you pick the right one, you're still networking blind. You lose hours to conversations that go nowhere while the person who could've been your next co-founder, investor, or hire was standing ten feet away.
-
-We thought: what if an agent could take that Luma attendee list — just names — figure out who every single person is, tell you who's worth your time, and send them a personalized intro before you even walk through the door?
+Now imagine you didn't. Imagine you walked in already knowing every person in the room — what they're building, what they're looking for, and exactly why the two of you should talk. Imagine the first message was already sent before you left the house. That's not networking. That's an unfair advantage.
 
 ## What it does
 
