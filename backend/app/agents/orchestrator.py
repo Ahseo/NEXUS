@@ -690,6 +690,9 @@ class NexusAgent:
                 # Trim history to prevent context overflow
                 self.trim_history()
 
+            except asyncio.CancelledError:
+                logger.info("[AGENT] Loop cancelled (paused/stopped)")
+                raise  # Let it propagate so the task ends cleanly
             except anthropic.APIError as e:
                 logger.error("[AGENT] API error: %s. Recovering in 60s...", e)
                 for _ in range(60):

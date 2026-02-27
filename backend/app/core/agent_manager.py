@@ -68,6 +68,9 @@ class AgentManager:
 
     @property
     def status(self) -> str:
+        # Explicit paused/stopped states take priority
+        if self._status in ("paused", "stopped", "crashed"):
+            return self._status
         if self._agent and self._agent.running:
             return "running"
         if self._task and not self._task.done():
@@ -224,29 +227,41 @@ class AgentManager:
     async def pause(self) -> None:
         if self._agent:
             self._agent.pause()
-            self._status = "paused"
-            await self._persist_status("paused")
-            await manager.broadcast(
-                {
-                    "type": "agent:status",
-                    "data": {"status": "paused", "agent": "wingman"},
-                }
-            )
+
+        # Cancel the task to immediately stop any in-flight API calls
+        if self._task and not self._task.done():
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            self._task = None
+
+        self._status = "paused"
+        await self._persist_status("paused")
+        await manager.broadcast(
+            {
+                "type": "agent:status",
+                "data": {"status": "paused", "agent": "wingman"},
+            }
+        )
 
     async def resume(self) -> None:
-        if self._agent and self._task and self._task.done():
-            self._agent.running = True
-            self._task = asyncio.create_task(self._run_agent())
-            self._status = "running"
-        elif self._agent:
-            self._agent.running = True
-            self._status = "running"
-            # Agent was paused but task not done yet — start the loop
-            if not self._task or self._task.done():
-                self._task = asyncio.create_task(self._run_agent())
-        else:
+        if not self._agent:
             await self.start()
             return  # start() handles persist + broadcast
+
+        # Ensure old task is cleaned up
+        if self._task and not self._task.done():
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+
+        self._agent.running = True
+        self._task = asyncio.create_task(self._run_agent())
+        self._status = "running"
 
         await self._persist_status("running")
         await manager.broadcast(
@@ -260,7 +275,7 @@ class AgentManager:
         """Trigger an immediate cycle (start if not running)."""
         if not self._agent:
             await self.start()
-        elif self._task and self._task.done():
+        elif not self._task or self._task.done():
             await self.resume()
 
     def get_status(self) -> dict[str, Any]:
