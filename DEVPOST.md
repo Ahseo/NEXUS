@@ -2,7 +2,11 @@
 
 A venture partner who could write your first check is standing ten feet away from you. You don't know. You're talking to someone who has nothing to do with what you're building, because you walked into this room blind — just like everyone else.
 
-Now imagine you didn't. Imagine you walked in already knowing every person in the room — what they're building, what they're looking for, and exactly why the two of you should talk. Imagine the first message was already sent before you left the house. That's not networking. That's an unfair advantage.
+This happens every week. You check the attendee list — 80 people going. Most have no profile picture, no bio, just a name. There's no way to know who's who. Hundreds of events, and even when you pick the right one, you're still networking blind. You lose hours to conversations that go nowhere while the person who could've been your next co-founder, investor, or hire was standing ten feet away.
+
+So we asked: what if an agent could take that attendee list — just names, no photos, no bios, nothing — figure out who every single person is, tell you who's worth your time, and send them a personalized intro before you even walk through the door?
+
+Now imagine you walked in already knowing every person in the room — what they're building, what they're looking for, and exactly why the two of you should talk. Imagine the first message was already sent before you left the house. That's not networking. That's an unfair advantage.
 
 ## What it does
 
