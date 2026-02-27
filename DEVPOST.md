@@ -1,25 +1,23 @@
 ## Inspiration
 
-Every SF professional knows the pain. Hundreds of events every week — scattered across Eventbrite, Luma, Meetup, Partiful, X, Slack communities, newsletters. You spend hours scrolling, manually RSVPing, then show up to a room full of strangers with zero idea who you should talk to. The follow-up? Never happens. You swap LinkedIn URLs and ghost each other forever.
+You RSVP to a Luma event. You check the attendee list — 80 people going. Most have no profile picture, no bio, just a name. You show up anyway, spend 3 hours making small talk, and walk out realizing more than half the room had nothing to do with what you're building. The 2-3 people you actually needed to meet? You walked right past them because you had no idea who they were.
 
-We've all missed the dinner where our future co-founder was sitting two seats away — because we didn't even know the event existed.
+This happens every week in SF. Hundreds of events, and even when you pick the right one, you're still networking blind. You lose hours to conversations that go nowhere while the person who could've been your next co-founder, investor, or hire was standing ten feet away.
 
-We thought: what if you had a tireless chief of staff who handled all of this while you slept?
+We thought: what if an agent could take that Luma attendee list — just names — figure out who every single person is, tell you who's worth your time, and send them a personalized intro before you even walk through the door?
 
 ## What it does
 
-Wingman is an always-on autonomous agent that runs your entire networking pipeline end-to-end:
+Wingman is an autonomous agent that turns a list of names into real connections.
 
-- **Discovers** events across 10+ platforms (Eventbrite, Luma, Meetup, Partiful, X) in real-time
-- **Scores** every event against your goals, interests, and past behavior
-- **Auto-applies** to high-relevance events and syncs them to your calendar
-- **Deep-researches** every attendee — iteratively, until it builds a full dossier (background, company, recent activity, hot takes)
-- **Resolves social handles** from just a name
-- **Drafts personalized cold outreach** before the event so you walk in with warm intros already sent
-- **Sends follow-ups** after the event while the conversation is still fresh
-- **Learns** from every accept, reject, and edit — getting smarter with every interaction
+Give it an event and it will:
 
-You wake up, open the dashboard, and your networking week is already planned.
+- **Identify every attendee** — from just a name and event context, it finds who they actually are (role, company, background, social profiles)
+- **Tell you who matters** — scores each person against your goals so you know exactly who to find in the room
+- **Send the first message for you** — drafts personalized intros based on deep research and queues them for your approval
+- **Handle the full lifecycle** — discovers events, auto-applies, syncs your calendar, and sends follow-ups after
+
+The core insight: a Luma attendee list with 80 blank profiles is useless to you, but it's a goldmine for an AI agent with web search and a knowledge graph. Wingman turns that list into a briefing document before you even leave the house.
 
 ## How we built it
 
