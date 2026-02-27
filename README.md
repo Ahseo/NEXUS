@@ -927,6 +927,51 @@ async def find_best_connections(event_url: str, user_id: str) -> list[PersonProf
     return [build_person_profile(r) for r in results]
 ```
 
+#### Step 3.5: Target People Matching
+
+```python
+# Connect Agent - Target People Matching
+from thefuzz import fuzz
+
+async def check_target_matches(
+    attendees: list[PersonProfile],
+    event: EnrichedEvent,
+    user_profile: UserProfile
+):
+    """Check if any target people are attending this event."""
+    for attendee in attendees:
+        for target in user_profile.target_people:
+            if fuzz.ratio(attendee.name.lower(), target.name.lower()) > 85:
+                # Update target status
+                target.status = "found_event"
+                target.matched_events = target.matched_events or []
+                target.matched_events.append(event)
+
+                # Notify user immediately
+                await notify_user("target:found", {
+                    "target": target,
+                    "event": event,
+                    "attendee": attendee
+                })
+
+                # Boost event score significantly
+                event.relevance_score = min(event.relevance_score + 30, 100)
+
+    # Also check via Neo4j graph relationship
+    graph_matches = await neo4j_driver.session().run("""
+        MATCH (u:User {id: $user_id})-[:WANTS_TO_MEET_PERSON]->(target:Person)
+        MATCH (target)-[:SPEAKS_AT|ATTENDS]->(e:Event {url: $event_url})
+        RETURN target.name as name, target.title as role,
+               target.company as company
+    """, {"user_id": user_profile.id, "event_url": event.url})
+
+    for match in graph_matches:
+        await notify_user("target:found", {
+            "target": match,
+            "event": event
+        })
+```
+
 #### Step 4: Cold Message Drafting (Context-Rich)
 
 ```python
@@ -2133,6 +2178,7 @@ This is not scripted. This is Claude actually thinking:
 // Relationship types
 (:User)-[:INTERESTED_IN {weight}]->(:Topic)
 (:User)-[:WANTS_TO_MEET]->(:Role)
+(:User)-[:WANTS_TO_MEET_PERSON {reason, priority, added_at}]->(:Person)
 (:User)-[:TARGETS]->(:Company)
 (:User)-[:ATTENDED {feedback, rating}]->(:Event)
 (:User)-[:REJECTED {reason, timestamp}]->(:Event)
@@ -2380,6 +2426,9 @@ interface UserProfile {
   target_companies: string[];      // ["Sequoia", "a16z", "Google"]
   target_industries: string[];     // ["AI/ML", "SaaS", "Developer Tools"]
 
+  // Target People (specific individuals)
+  target_people: TargetPerson[];   // ["Sam Altman", "Satya Nadella"]
+
   // Preferences (learned + explicit)
   interests: string[];             // ["AI agents", "developer tools", "fundraising"]
   preferred_event_types: string[]; // ["dinner", "meetup", "conference"]
@@ -2393,6 +2442,18 @@ interface UserProfile {
   auto_apply_threshold: number;    // 80 (score 80+ = auto-apply)
   suggest_threshold: number;       // 50 (score 50+ = suggest)
   auto_schedule_threshold: number; // 85 (score 85+ = auto-add to calendar)
+}
+
+interface TargetPerson {
+  id: string;
+  name: string;
+  company?: string;
+  role?: string;
+  reason: string;              // "투자 유치 논의"
+  priority: "high" | "medium" | "low";
+  status: "searching" | "found_event" | "messaged" | "connected";
+  added_at: DateTime;
+  matched_events?: Event[];    // 이 사람이 감지된 이벤트들
 }
 ```
 
@@ -2649,6 +2710,21 @@ interface Feedback {
 │  Target companies (optional):                            │
 │  [Sequoia, a16z, Y Combinator, Google, ___________]     │
 │                                                          │
+│  Specific people you want to meet (optional):            │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │ + Add person                                       │  │
+│  │                                                    │  │
+│  │ Name: [Sam Altman_______]  Company: [OpenAI___]    │  │
+│  │ Why:  [Discuss fundraising for Series A____]       │  │
+│  │ Priority: (x) High  ( ) Medium  ( ) Low            │  │
+│  │                                        [Add ✓]     │  │
+│  │                                                    │  │
+│  │ ┌─ Added ──────────────────────────────────────┐   │  │
+│  │ │ Sam Altman (OpenAI) — High — Searching...    │   │  │
+│  │ │ Elad Gil — Medium — Searching...             │   │  │
+│  │ └─────────────────────────────────────────────┘   │  │
+│  └────────────────────────────────────────────────────┘  │
+│                                                          │
 ├──────────────────────────────────────────────────────────┤
 │                                                          │
 │  Step 3 of 4: Event Preferences                          │
@@ -2753,6 +2829,13 @@ GET    /api/people/:id                # Person detail + research
 GET    /api/people/:id/graph          # Person's graph connections
 POST   /api/people/:id/mark           # Mark as "want to meet" / "not interested"
 
+# Target People Endpoints
+GET    /api/targets                   # List target people
+POST   /api/targets                   # Add target person
+PUT    /api/targets/:id               # Update target (priority, reason)
+DELETE /api/targets/:id               # Remove target
+GET    /api/targets/:id/matches       # Events where this person was found
+
 # Message Endpoints
 GET    /api/messages                  # List draft/sent messages
 GET    /api/messages/:id              # Message detail
@@ -2799,6 +2882,8 @@ interface WSEvents {
   "message:drafted": { message: ColdMessage };             // new draft ready
   "message:sent": { message: ColdMessage };                // message sent
   "agent:status": { agent: string; status: string };       // agent health
+  "target:found": { target: TargetPerson; event: Event; person: Person };  // target person found at event
+  "target:updated": { target: TargetPerson };                               // target status changed
 }
 ```
 
