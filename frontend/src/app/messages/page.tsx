@@ -63,29 +63,37 @@ export default function MessagesPage() {
   const sent = messageList.filter((m) => m.status === "sent" || m.status === "approved");
 
   return (
-    <div className="p-6">
+    <div className="p-6 animate-fade-in">
+      {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-100">Messages</h1>
-        <p className="text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
+        <p className="text-[13px] text-gray-400">
           Review and approve draft messages before they are sent
         </p>
       </div>
 
       {loading ? (
-        <div className="flex h-40 items-center justify-center text-gray-500">
-          Loading messages...
+        <div className="space-y-3">
+          {[1, 2, 3].map((n) => (
+            <div
+              key={n}
+              className="h-32 rounded-2xl bg-white/60 animate-pulse"
+              style={{ animationDelay: `${n * 80}ms` }}
+            />
+          ))}
         </div>
       ) : (
         <div className="space-y-8">
-          <section>
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-500">
-              <span className="inline-block h-2 w-2 rounded-full bg-yellow-500" />
+          {/* Pending Drafts */}
+          <section className="animate-fade-in-up">
+            <h2 className="mb-3 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider text-gray-400">
+              <span className="inline-block h-2 w-2 rounded-full bg-orange-400" />
               Pending Approval ({drafts.length})
             </h2>
             {drafts.length === 0 ? (
-              <p className="text-sm text-gray-600">No drafts to review.</p>
+              <p className="text-[13px] text-gray-400">No drafts to review.</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 stagger-children">
                 {drafts.map((msg) => (
                   <MessageDraft
                     key={msg.id}
@@ -99,15 +107,16 @@ export default function MessagesPage() {
             )}
           </section>
 
-          <section>
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-500">
-              <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+          {/* Sent */}
+          <section className="animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+            <h2 className="mb-3 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider text-gray-400">
+              <span className="inline-block h-2 w-2 rounded-full bg-gray-400" />
               Sent ({sent.length})
             </h2>
             {sent.length === 0 ? (
-              <p className="text-sm text-gray-600">No messages sent yet.</p>
+              <p className="text-[13px] text-gray-400">No messages sent yet.</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 stagger-children">
                 {sent.map((msg) => (
                   <MessageDraft key={msg.id} message={msg} />
                 ))}

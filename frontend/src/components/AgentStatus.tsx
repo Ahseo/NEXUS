@@ -65,8 +65,7 @@ export default function AgentStatus() {
           const type = msg.type as string;
           const data = msg.data as Record<string, unknown>;
 
-          // Only show background agent events (not chat)
-          const source = (data.agent as string) || "nexus";
+          const source = (data.agent as string) || "wingman";
           if (source === "chat") return;
 
           if (type === "agent:status") {
@@ -83,7 +82,7 @@ export default function AgentStatus() {
               message,
               time: new Date().toLocaleTimeString(),
             },
-            ...prev.slice(0, 9), // keep last 10 in sidebar
+            ...prev.slice(0, 9),
           ]);
         } catch {
           // ignore
@@ -109,37 +108,35 @@ export default function AgentStatus() {
 
   return (
     <div className="space-y-2">
-      {/* Status indicator + expand link */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span
-            className={`inline-block h-2 w-2 rounded-full ${
+            className={`inline-block h-2 w-2 rounded-full transition-all duration-300 ${
               !connected
-                ? "bg-gray-600"
+                ? "bg-gray-300"
                 : status === "running"
-                  ? "animate-pulse bg-green-500"
-                  : "bg-yellow-500"
+                  ? "bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.4)] animate-pulse"
+                  : "bg-gray-400"
             }`}
           />
-          <span className="text-xs text-gray-400">
-            {!connected ? "Disconnected" : `Agent ${status}`}
+          <span className="text-[11px] text-gray-500">
+            {!connected ? "Offline" : `Agent ${status}`}
           </span>
         </div>
         <Link
           href="/activity"
-          className="text-[10px] text-gray-600 transition hover:text-indigo-400"
+          className="text-[10px] text-gray-400 transition-colors duration-200 hover:text-gray-700"
           title="View full activity log"
         >
-          Expand
+          View all
         </Link>
       </div>
 
-      {/* Compact activity feed */}
       {activities.length > 0 && (
-        <div className="max-h-28 space-y-1 overflow-y-auto">
+        <div className="max-h-24 space-y-0.5 overflow-y-auto">
           {activities.map((a) => (
-            <div key={a.id} className="flex gap-2 text-[10px]">
-              <span className="shrink-0 text-gray-600">{a.time}</span>
+            <div key={a.id} className="flex gap-2 text-[10px] animate-fade-in-up">
+              <span className="shrink-0 text-gray-400">{a.time}</span>
               <span className="truncate text-gray-500">{a.message}</span>
             </div>
           ))}

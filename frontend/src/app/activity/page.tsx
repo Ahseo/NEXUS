@@ -28,7 +28,6 @@ export default function ActivityPage() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load historical events from API on mount
   useEffect(() => {
     agent
       .events({ limit: 500 })
@@ -49,7 +48,6 @@ export default function ActivityPage() {
       });
   }, []);
 
-  // Subscribe to WebSocket for live events (append to top)
   useEffect(() => {
     if (!user?.user_id) return;
 
@@ -75,7 +73,7 @@ export default function ActivityPage() {
             setAgentStatus(data.status as string);
           }
 
-          const source = (data.agent as string) || "nexus";
+          const source = (data.agent as string) || "wingman";
           const message = _formatMessage(type, data);
           const detail = _formatDetail(type, data);
 
@@ -140,49 +138,40 @@ export default function ActivityPage() {
     return a.source === "chat";
   });
 
-  const typeColor = (type: string) => {
-    if (type.startsWith("event:")) return "text-blue-400";
-    if (type.startsWith("person:")) return "text-emerald-400";
-    if (type.startsWith("message:")) return "text-purple-400";
-    if (type.startsWith("target:")) return "text-amber-400";
-    if (type === "agent:status") return "text-gray-400";
-    return "text-gray-500";
-  };
-
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-800 px-6 py-4">
+      <div className="flex items-center justify-between border-b border-black/[0.04] px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <span
-              className={`inline-block h-2.5 w-2.5 rounded-full ${
+              className={`inline-block h-2.5 w-2.5 rounded-full transition-all duration-500 ${
                 !connected
-                  ? "bg-gray-600"
+                  ? "bg-gray-300"
                   : agentStatus === "running"
-                    ? "animate-pulse bg-green-500"
-                    : "bg-yellow-500"
+                    ? "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)] animate-pulse"
+                    : "bg-gray-400"
               }`}
             />
-            <h1 className="text-lg font-semibold text-gray-100">Agent Activity</h1>
+            <h1 className="text-[15px] font-semibold text-gray-900">Activity</h1>
           </div>
-          <span className="rounded-full bg-gray-800 px-2 py-0.5 text-xs text-gray-400">
+          <span className="rounded-full bg-[#F7F7F4] px-2.5 py-0.5 text-[11px] font-medium text-gray-400">
             {connected ? agentStatus : "disconnected"}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleRunNow}
-            className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+            className="rounded-xl bg-[#1a1a1a] px-3.5 py-1.5 text-[12px] font-medium text-white transition-all duration-200 hover:bg-[#333] active:scale-[0.97]"
           >
             Run Now
           </button>
           <button
             onClick={handleToggle}
-            className={`rounded px-3 py-1.5 text-xs font-medium text-white ${
+            className={`rounded-xl px-3.5 py-1.5 text-[12px] font-medium transition-all duration-200 active:scale-[0.97] ${
               paused
-                ? "bg-green-600 hover:bg-green-500"
-                : "bg-yellow-600 hover:bg-yellow-500"
+                ? "bg-[#1a1a1a] text-white hover:bg-[#333]"
+                : "border border-black/[0.06] bg-white text-gray-500 hover:bg-gray-50"
             }`}
           >
             {paused ? "Resume" : "Pause"}
@@ -190,63 +179,69 @@ export default function ActivityPage() {
         </div>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-1 border-b border-gray-800 px-6 py-2">
+      {/* Filters */}
+      <div className="flex gap-1.5 border-b border-black/[0.04] px-6 py-2.5">
         {(["all", "background", "chat"] as FilterType[]).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
+            className={`rounded-full px-3 py-1 text-[12px] font-medium capitalize transition-all duration-200 ${
               filter === f
-                ? "bg-indigo-600/20 text-indigo-400"
-                : "text-gray-500 hover:text-gray-300"
+                ? "bg-[#1a1a1a] text-white shadow-sm"
+                : "text-gray-400 hover:bg-black/[0.04] hover:text-gray-600"
             }`}
           >
-            {f === "background" ? "Background Agent" : f === "chat" ? "Chat Agent" : "All"}
+            {f === "background" ? "Background" : f === "chat" ? "Chat" : "All"}
           </button>
         ))}
-        <span className="ml-auto text-xs text-gray-600">{filtered.length} events</span>
+        <span className="ml-auto text-[11px] text-gray-300 tabular-nums">{filtered.length} events</span>
       </div>
 
-      {/* Activity log */}
+      {/* Log */}
       <div className="flex-1 overflow-y-auto">
         {!loaded ? (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-gray-600">Loading activity...</p>
+          <div className="space-y-2 p-4">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <div
+                key={n}
+                className="h-14 rounded-xl bg-white/60 animate-pulse"
+                style={{ animationDelay: `${n * 60}ms` }}
+              />
+            ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <p className="text-sm text-gray-600">No activity yet</p>
-            <p className="mt-1 text-xs text-gray-700">
-              Agent events will appear here in real-time
+          <div className="flex h-full flex-col items-center justify-center text-center animate-fade-in">
+            <p className="text-sm text-gray-400">No activity yet</p>
+            <p className="mt-1 text-[12px] text-gray-300">
+              Events will appear here in real-time
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-800/50">
+          <div className="divide-y divide-black/[0.03] stagger-children">
             {filtered.map((a) => (
               <div
                 key={a.id}
-                className="flex items-start gap-4 px-6 py-3 transition hover:bg-gray-900/50"
+                className="flex items-start gap-4 px-6 py-3 transition-colors duration-200 hover:bg-white/50"
               >
-                <span className="mt-0.5 shrink-0 font-mono text-xs text-gray-600">
+                <span className="mt-0.5 shrink-0 font-mono text-[11px] tabular-nums text-gray-300">
                   {a.time}
                 </span>
                 <span
                   className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                     a.source === "chat"
-                      ? "bg-purple-500/10 text-purple-400"
-                      : "bg-blue-500/10 text-blue-400"
+                      ? "bg-gray-100 text-gray-500"
+                      : "bg-[#F7F7F4] text-gray-400"
                   }`}
                 >
                   {a.source === "chat" ? "chat" : "bg"}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className={`text-sm ${typeColor(a.type)}`}>{a.message}</p>
+                  <p className="text-[13px] text-gray-700">{a.message}</p>
                   {a.detail && (
-                    <p className="mt-0.5 truncate text-xs text-gray-600">{a.detail}</p>
+                    <p className="mt-0.5 truncate text-[11px] text-gray-400">{a.detail}</p>
                   )}
                 </div>
-                <span className="shrink-0 text-[10px] text-gray-700">{a.type}</span>
+                <span className="shrink-0 text-[10px] text-gray-300">{a.type}</span>
               </div>
             ))}
           </div>
@@ -256,30 +251,23 @@ export default function ActivityPage() {
   );
 }
 
-/* ── Formatting helpers (mirror backend EVENT_LABELS) ─────────────── */
+/* ── Formatting helpers ─────────────────────────────── */
 
 function _formatMessage(type: string, data: Record<string, unknown>): string {
   const fmts: Record<string, (d: Record<string, unknown>) => string> = {
-    "event:discovered": (d) =>
-      `Found event: ${_nested(d, "event", "title", "unknown")}`,
-    "event:analyzed": (d) =>
-      `Analyzed: ${_nested(d, "event", "title", "event")}`,
-    "event:applied": (d) =>
-      `Applied to: ${_nested(d, "event", "title", "event")}`,
-    "event:scheduled": (d) =>
-      `Scheduled: ${_nested(d, "event", "title", "event")}`,
-    "person:discovered": (d) =>
-      `Discovered person: ${_nested(d, "person", "name", "unknown")}`,
+    "event:discovered": (d) => `Found event: ${_nested(d, "event", "title", "unknown")}`,
+    "event:analyzed": (d) => `Analyzed: ${_nested(d, "event", "title", "event")}`,
+    "event:applied": (d) => `Applied to: ${_nested(d, "event", "title", "event")}`,
+    "event:scheduled": (d) => `Scheduled: ${_nested(d, "event", "title", "event")}`,
+    "person:discovered": (d) => `Discovered person: ${_nested(d, "person", "name", "unknown")}`,
     "message:drafted": () => "Drafted a message",
     "message:sent": () => "Sent a message",
     "agent:status": (d) => {
       const tool = d.tool as string | undefined;
       return tool ? `Tool: ${tool}` : `Agent ${d.status}`;
     },
-    "target:found": (d) =>
-      `Target person matched: ${_nested(d, "target", "name", "")}`,
-    "target:updated": (d) =>
-      `Target updated: ${_nested(d, "target", "name", "")}`,
+    "target:found": (d) => `Target matched: ${_nested(d, "target", "name", "")}`,
+    "target:updated": (d) => `Target updated: ${_nested(d, "target", "name", "")}`,
   };
   const fn = fmts[type];
   return fn ? fn(data) : type;

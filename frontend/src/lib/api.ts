@@ -121,7 +121,7 @@ export const agent = {
     if (params?.source) qs.set("source", params.source);
     const q = qs.toString();
     return fetchApi<
-      { id: string; type: string; source: string; message: string; detail: string; time: string }[]
+      { id: string; type: string; source: string; message: string; detail: string; data: Record<string, unknown> | null; time: string }[]
     >(`/api/agent/events${q ? `?${q}` : ""}`);
   },
   pause: () => fetchApi("/api/agent/pause", { method: "POST" }),

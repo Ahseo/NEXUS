@@ -15,7 +15,6 @@ export default function ChatPage() {
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Load history on mount
   useEffect(() => {
     chat
       .history()
@@ -23,7 +22,6 @@ export default function ChatPage() {
       .catch(() => {});
   }, []);
 
-  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activeTool]);
@@ -36,8 +34,6 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     setStreaming(true);
     setActiveTool(null);
-
-    // Add empty assistant message to fill in
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     try {
@@ -79,21 +75,17 @@ export default function ChatPage() {
               const query = payload.input?.query || "";
               setActiveTool(toolName);
 
-              // Show tool usage in chat as a special message
               setMessages((prev) => {
-                // Insert a tool message before the last assistant message
                 const updated = [...prev];
                 const lastIdx = updated.length - 1;
                 const last = updated[lastIdx];
 
-                // Only insert tool msg if the last assistant msg is still empty
                 if (last?.role === "assistant" && !last.content) {
                   updated.splice(lastIdx, 0, {
                     role: "tool",
                     content: `Searching: ${query || toolName}`,
                   });
                 } else {
-                  // Append after the current assistant message and add a new empty one
                   updated.push({
                     role: "tool",
                     content: `Searching: ${query || toolName}`,
@@ -131,10 +123,10 @@ export default function ChatPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-800 px-6 py-4">
+      <div className="flex items-center justify-between border-b border-black/[0.04] px-6 py-4">
         <div>
-          <h1 className="text-lg font-semibold text-gray-100">NEXUS Agent</h1>
-          <p className="text-xs text-gray-500">
+          <h1 className="text-[15px] font-semibold text-gray-900">Chat</h1>
+          <p className="text-[12px] text-gray-400">
             Ask me to find events, research people, or draft messages
           </p>
         </div>
@@ -143,22 +135,24 @@ export default function ChatPage() {
             chat.clear();
             setMessages([]);
           }}
-          className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-medium text-gray-300 transition hover:border-indigo-500 hover:text-indigo-400"
+          className="flex items-center gap-1.5 rounded-xl border border-black/[0.06] px-3 py-1.5 text-[12px] font-medium text-gray-500 transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-gray-700 active:scale-[0.97]"
         >
           <span className="text-sm leading-none">+</span>
-          New Chat
+          New
         </button>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {messages.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <div className="mb-4 text-4xl text-indigo-400/30">N</div>
-            <p className="text-sm text-gray-500">
-              Start a conversation with your networking agent
+          <div className="flex h-full flex-col items-center justify-center text-center animate-fade-in">
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1a1a1a]/5 animate-float">
+              <span className="text-2xl font-bold text-[#1a1a1a]/20">W</span>
+            </div>
+            <p className="text-sm text-gray-400">
+              Start a conversation with your agent
             </p>
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <div className="mt-5 flex flex-wrap justify-center gap-2 stagger-children">
               {[
                 "Find AI events in SF this week",
                 "Who should I meet at the next meetup?",
@@ -167,10 +161,8 @@ export default function ChatPage() {
               ].map((suggestion) => (
                 <button
                   key={suggestion}
-                  onClick={() => {
-                    setInput(suggestion);
-                  }}
-                  className="rounded-full border border-gray-800 px-3 py-1.5 text-xs text-gray-400 transition hover:border-indigo-500/50 hover:text-gray-200"
+                  onClick={() => setInput(suggestion)}
+                  className="rounded-full border border-black/[0.06] bg-white px-3.5 py-2 text-[12px] text-gray-500 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:text-gray-700 active:scale-[0.97]"
                 >
                   {suggestion}
                 </button>
@@ -179,14 +171,13 @@ export default function ChatPage() {
           </div>
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {messages.map((msg, i) => {
-            // Tool usage indicator
             if (msg.role === "tool") {
               return (
-                <div key={i} className="flex justify-start">
-                  <div className="flex items-center gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3 py-1.5 text-xs text-indigo-300">
-                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-indigo-400" />
+                <div key={i} className="flex justify-start animate-fade-in">
+                  <div className="flex items-center gap-2 rounded-xl bg-orange-50 px-3 py-1.5 text-[12px] text-orange-600">
+                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-orange-500" />
                     {msg.content}
                   </div>
                 </div>
@@ -196,19 +187,21 @@ export default function ChatPage() {
             return (
               <div
                 key={i}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fade-in-up`}
               >
                 <div
-                  className={`max-w-[75%] rounded-lg px-4 py-2.5 text-sm whitespace-pre-wrap ${
+                  className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap ${
                     msg.role === "user"
-                      ? "bg-indigo-600 text-white"
-                      : "bg-gray-800 text-gray-200"
+                      ? "bg-[#1a1a1a] text-white"
+                      : "bg-white text-gray-700 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-black/[0.04]"
                   }`}
                 >
                   {msg.content}
                   {msg.role === "assistant" && !msg.content && streaming && (
-                    <span className="inline-block animate-pulse text-gray-500">
-                      {activeTool ? `Using ${activeTool}...` : "Thinking..."}
+                    <span className="inline-flex items-center gap-1 text-gray-400">
+                      <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-gray-300" style={{ animationDelay: "0ms" }} />
+                      <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-gray-300" style={{ animationDelay: "150ms" }} />
+                      <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-gray-300" style={{ animationDelay: "300ms" }} />
                     </span>
                   )}
                 </div>
@@ -220,7 +213,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-800 px-6 py-4">
+      <div className="border-t border-black/[0.04] px-6 py-4">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -232,14 +225,14 @@ export default function ChatPage() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask NEXUS anything..."
+            placeholder="Ask anything..."
             disabled={streaming}
-            className="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-4 py-2.5 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
+            className="flex-1 rounded-xl border border-black/[0.06] bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition-all duration-200 focus:border-black/10 focus:outline-none focus:ring-2 focus:ring-black/[0.04] focus:shadow-md disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={streaming || !input.trim()}
-            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
+            className="rounded-xl bg-[#1a1a1a] px-5 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-[#333] active:scale-[0.97] disabled:opacity-30"
           >
             {streaming ? "..." : "Send"}
           </button>
