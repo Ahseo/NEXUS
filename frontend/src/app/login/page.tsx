@@ -85,10 +85,10 @@ export default function LoginPage() {
         {/* Brand */}
         <div className="mb-10 text-center">
           <div
-            className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1a1a1a] shadow-[0_8px_32px_rgba(0,0,0,0.15)]"
+            className="mb-4 inline-flex"
             style={{ animation: "logo-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both" }}
           >
-            <span className="text-2xl font-bold text-white">W</span>
+            <img src="/logo.svg" alt="WINGMAN" className="h-14 w-auto" />
           </div>
           <div className="overflow-hidden">
             <h1

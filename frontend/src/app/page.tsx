@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { events as eventsApi, agent } from "@/lib/api";
 import type { Event } from "@/lib/types";
 import EventCard from "@/components/EventCard";
+import AgentWorkspace from "@/components/AgentWorkspace";
 
 interface AgentStatusData {
   status: string;
@@ -83,6 +84,11 @@ export default function DashboardPage() {
             {agentData?.status ?? "loading"}
           </span>
         </div>
+      </div>
+
+      {/* Agent Workspace */}
+      <div className="mb-8">
+        <AgentWorkspace />
       </div>
 
       {/* Stats */}

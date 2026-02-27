@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import AgentStatus from "./AgentStatus";
@@ -90,9 +91,7 @@ export default function Sidebar() {
     <aside className="flex h-screen w-56 flex-col bg-[#EDECE7]">
       {/* Brand */}
       <div className="flex h-14 items-center gap-2.5 px-5">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#1a1a1a]">
-          <span className="text-xs font-bold text-white">W</span>
-        </div>
+        <Image src="/logo.svg" alt="WINGMAN" width={24} height={26} />
         <span className="text-[15px] font-semibold tracking-tight text-[#1a1a1a]">
           WINGMAN
         </span>
