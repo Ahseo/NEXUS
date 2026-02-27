@@ -48,6 +48,20 @@ export const events = {
       method: "POST",
       body: JSON.stringify({ rating }),
     }),
+  attend: (id: string) => fetchApi(`/api/events/${id}/attend`, { method: "POST" }),
+  skipAttend: (id: string) => fetchApi(`/api/events/${id}/skip-attend`, { method: "POST" }),
+  addConnections: (id: string, connections: { name: string; linkedin_url: string; notes?: string }[]) =>
+    fetchApi(`/api/events/${id}/connections`, {
+      method: "POST",
+      body: JSON.stringify({ connections }),
+    }),
+  getConnections: (id: string) => fetchApi<{ name: string; linkedin_url: string; notes?: string }[]>(`/api/events/${id}/connections`),
+  analyzeConnections: (id: string) => fetchApi(`/api/events/${id}/analyze-connections`, { method: "POST" }),
+  draftMessages: (id: string, userProfile: Record<string, unknown>) =>
+    fetchApi<{ recipient: string; channel: string; body: string; linkedin_url: string }[]>(
+      `/api/events/${id}/draft-messages`,
+      { method: "POST", body: JSON.stringify({ user_profile: userProfile }) },
+    ),
 };
 
 // People Endpoints
