@@ -58,11 +58,11 @@ export default function LoginPage() {
       <div className="w-full max-w-sm animate-fade-in-up">
         {/* Brand */}
         <div className="mb-10 text-center">
-          <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1a1a1a] shadow-lg animate-float">
-            <span className="text-xl font-bold text-white">W</span>
+          <div className="mb-4 inline-flex animate-float">
+            <img src="/logo.svg" alt="NEXUS" className="h-14 w-auto" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-[#1a1a1a]">
-            WINGMAN
+            NEXUS
           </h1>
           <p className="mt-1 text-sm text-gray-400">
             Your autonomous networking agent

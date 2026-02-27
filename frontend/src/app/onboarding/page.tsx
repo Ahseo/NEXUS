@@ -81,10 +81,10 @@ export default function OnboardingPage() {
       <div className="w-full max-w-xl animate-fade-in">
         {/* Header */}
         <div className="mb-8 text-center">
-          <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1a1a1a] shadow-lg animate-float">
-            <span className="text-lg font-bold text-white">W</span>
+          <div className="mb-3 inline-flex animate-float">
+            <img src="/logo.svg" alt="NEXUS" className="h-12 w-auto" />
           </div>
-          <h1 className="text-2xl font-bold text-[#1a1a1a]">Set up WINGMAN</h1>
+          <h1 className="text-2xl font-bold text-[#1a1a1a]">Set up NEXUS</h1>
           <p className="mt-1 text-[13px] text-gray-400">Configure your networking agent</p>
         </div>
 

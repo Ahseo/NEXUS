@@ -146,8 +146,8 @@ export default function ChatPage() {
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center animate-fade-in">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1a1a1a]/5 animate-float">
-              <span className="text-2xl font-bold text-[#1a1a1a]/20">W</span>
+            <div className="mb-5 flex h-16 w-16 items-center justify-center animate-float opacity-20">
+              <img src="/logo.svg" alt="NEXUS" className="h-12 w-auto" />
             </div>
             <p className="text-sm text-gray-400">
               Start a conversation with your agent
