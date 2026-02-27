@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { events as eventsApi, agent } from "@/lib/api";
 import type { Event } from "@/lib/types";
 import EventCard from "@/components/EventCard";
-import AgentWorkspace from "@/components/AgentWorkspace";
+// import AgentWorkspace from "@/components/AgentWorkspace";
 
 interface AgentStatusData {
   status: string;
@@ -26,6 +26,16 @@ export default function DashboardPage() {
       setAgentData(ag as AgentStatusData | null);
       setLoading(false);
     });
+  }, []);
+
+  // Listen for real-time agent status changes from WebSocket
+  useEffect(() => {
+    const handler = ((e: CustomEvent) => {
+      const newStatus = e.detail as string;
+      setAgentData((prev) => prev ? { ...prev, status: newStatus } : { status: newStatus });
+    }) as EventListener;
+    window.addEventListener("agent:status", handler);
+    return () => window.removeEventListener("agent:status", handler);
   }, []);
 
   const handleAccept = async (id: string) => {
@@ -86,10 +96,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Agent Workspace */}
-      <div className="mb-8">
+      {/* Agent Workspace — commented out for now */}
+      {/* <div className="mb-8">
         <AgentWorkspace />
-      </div>
+      </div> */}
 
       {/* Stats */}
       <div className="mb-8 grid grid-cols-3 gap-4 stagger-children">

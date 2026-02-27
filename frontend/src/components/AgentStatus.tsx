@@ -80,7 +80,10 @@ export default function AgentStatus() {
           if (source === "chat") return;
 
           if (type === "agent:status") {
-            setStatus(data.status as string);
+            const newStatus = data.status as string;
+            setStatus(newStatus);
+            // Dispatch custom event so other components (e.g. dashboard) can react
+            window.dispatchEvent(new CustomEvent("agent:status", { detail: newStatus }));
           }
 
           const labelFn = EVENT_LABELS[type];
