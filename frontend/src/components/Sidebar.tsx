@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import AgentStatus from "./AgentStatus";
+import { useAuth } from "./AuthProvider";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: "D" },
@@ -14,6 +15,7 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
 
   return (
     <aside className="flex h-screen w-56 flex-col border-r border-gray-800 bg-gray-950">
@@ -49,6 +51,17 @@ export default function Sidebar() {
       <div className="border-t border-gray-800 p-4">
         <AgentStatus />
       </div>
+      {user && (
+        <div className="border-t border-gray-800 p-4">
+          <p className="truncate text-xs text-gray-500">{user.email}</p>
+          <button
+            onClick={logout}
+            className="mt-2 w-full rounded px-3 py-1.5 text-xs text-gray-400 transition hover:bg-gray-800 hover:text-gray-200"
+          >
+            Sign out
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

@@ -3,10 +3,10 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import verify_api_key
+from app.core.auth import decode_access_token, get_token_from_cookie
 from app.core.database import async_session_factory
 
 
@@ -17,22 +17,19 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def get_neo4j_session() -> AsyncGenerator[None, None]:
-    """Placeholder for Neo4j session injection.
-
-    Will be implemented when the Neo4j integration client is ready.
-    """
+    """Placeholder for Neo4j session injection."""
     yield None
 
 
-async def get_current_user(api_key: str = Depends(verify_api_key)) -> str:
-    """Return the authenticated user identifier.
+async def get_current_user(request: Request) -> dict[str, str]:
+    """Extract user_id and email from the JWT cookie.
 
-    For the initial API-key auth scheme the key itself is the identity.
-    Will be replaced with proper user lookup once OAuth is wired.
+    Returns {"user_id": "...", "email": "..."}.
     """
-    return api_key
+    token = get_token_from_cookie(request)
+    return decode_access_token(token)
 
 
 # Annotated shortcuts for router signatures
 DbSession = Annotated[AsyncSession, Depends(get_db_session)]
-CurrentUser = Annotated[str, Depends(get_current_user)]
+CurrentUser = Annotated[dict[str, str], Depends(get_current_user)]

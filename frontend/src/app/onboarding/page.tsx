@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { profile as profileApi } from "@/lib/api";
+import { useAuth } from "@/components/AuthProvider";
 import type { MessageTone, TargetPriority } from "@/lib/types";
 
 const STEPS = ["About You", "Networking Goals", "Event Preferences", "Automation Level"];
@@ -37,6 +38,7 @@ interface TargetInput {
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -48,6 +50,11 @@ export default function OnboardingPage() {
   const [linkedin, setLinkedin] = useState("");
   const [twitter, setTwitter] = useState("");
   const [email, setEmail] = useState("");
+
+  // Prefill from Google auth data
+  useEffect(() => {
+    if (user?.email) setEmail(user.email);
+  }, [user]);
 
   // Step 2
   const [goals, setGoals] = useState<string[]>([]);

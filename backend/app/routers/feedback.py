@@ -1,6 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-router = APIRouter(prefix="/api/feedback", tags=["feedback"])
+from app.core.deps import get_current_user
+
+router = APIRouter(
+    prefix="/api/feedback",
+    tags=["feedback"],
+    dependencies=[Depends(get_current_user)],
+)
 
 _feedback_store: list[dict] = []
 

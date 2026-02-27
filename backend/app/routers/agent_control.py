@@ -1,6 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-router = APIRouter(prefix="/api/agent", tags=["agent"])
+from app.core.deps import get_current_user
+
+router = APIRouter(
+    prefix="/api/agent",
+    tags=["agent"],
+    dependencies=[Depends(get_current_user)],
+)
 
 _agent_state = {"status": "idle", "last_cycle": None, "events_discovered": 0, "events_applied": 0}
 

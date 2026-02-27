@@ -1,9 +1,15 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
-router = APIRouter(prefix="/api/targets", tags=["targets"])
+from app.core.deps import get_current_user
+
+router = APIRouter(
+    prefix="/api/targets",
+    tags=["targets"],
+    dependencies=[Depends(get_current_user)],
+)
 
 _targets: dict[str, dict] = {}
 

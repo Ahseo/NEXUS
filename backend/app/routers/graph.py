@@ -1,6 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-router = APIRouter(prefix="/api/graph", tags=["graph"])
+from app.core.deps import get_current_user
+
+router = APIRouter(
+    prefix="/api/graph",
+    tags=["graph"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get("/network")

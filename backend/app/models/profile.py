@@ -4,7 +4,7 @@ import enum
 from datetime import datetime
 
 from pydantic import BaseModel, Field
-from sqlalchemy import DateTime, Enum, Float, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, Float, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -108,6 +108,13 @@ class UserProfileDB(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+
+    # OAuth fields
+    google_sub: Mapped[str | None] = mapped_column(
+        String(255), unique=True, index=True, nullable=True
+    )
+    google_refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     role: Mapped[str] = mapped_column(Text, nullable=False)
     company: Mapped[str] = mapped_column(Text, nullable=False)

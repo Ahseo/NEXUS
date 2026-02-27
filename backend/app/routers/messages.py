@@ -1,6 +1,12 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
-router = APIRouter(prefix="/api/messages", tags=["messages"])
+from app.core.deps import get_current_user
+
+router = APIRouter(
+    prefix="/api/messages",
+    tags=["messages"],
+    dependencies=[Depends(get_current_user)],
+)
 
 _messages: dict[str, dict] = {}
 

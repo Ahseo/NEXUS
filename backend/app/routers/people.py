@@ -1,6 +1,12 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
-router = APIRouter(prefix="/api/people", tags=["people"])
+from app.core.deps import get_current_user
+
+router = APIRouter(
+    prefix="/api/people",
+    tags=["people"],
+    dependencies=[Depends(get_current_user)],
+)
 
 _people: dict[str, dict] = {}
 
