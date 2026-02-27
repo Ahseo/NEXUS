@@ -63,14 +63,16 @@ export default function MessagesPage() {
   const sent = messageList.filter((m) => m.status === "sent" || m.status === "approved");
 
   return (
-    <div className="p-6 animate-fade-in">
+    <div className="flex h-full flex-col animate-fade-in">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
-        <p className="text-[13px] text-gray-400">
+      <div className="border-b border-black/[0.04] px-6 py-5">
+        <h1 className="text-xl font-bold text-gray-900">Messages</h1>
+        <p className="text-[12px] text-gray-400">
           Review and approve draft messages before they are sent
         </p>
       </div>
+
+      <div className="flex-1 overflow-y-auto p-6">
 
       {loading ? (
         <div className="space-y-3">
@@ -125,6 +127,7 @@ export default function MessagesPage() {
           </section>
         </div>
       )}
+      </div>
     </div>
   );
 }

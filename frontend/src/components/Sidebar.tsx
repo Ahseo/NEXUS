@@ -7,27 +7,18 @@ import AgentStatus from "./AgentStatus";
 import { useAuth } from "./AuthProvider";
 
 const navItems = [
-  {
-    href: "/",
-    label: "Dashboard",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="7" height="7" rx="1" />
-        <rect x="14" y="3" width="7" height="7" rx="1" />
-        <rect x="3" y="14" width="7" height="7" rx="1" />
-        <rect x="14" y="14" width="7" height="7" rx="1" />
-      </svg>
-    ),
-  },
-  {
-    href: "/chat",
-    label: "Chat",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      </svg>
-    ),
-  },
+  // {
+  //   href: "/",
+  //   label: "Dashboard",
+  //   icon: (
+  //     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  //       <rect x="3" y="3" width="7" height="7" rx="1" />
+  //       <rect x="14" y="3" width="7" height="7" rx="1" />
+  //       <rect x="3" y="14" width="7" height="7" rx="1" />
+  //       <rect x="14" y="14" width="7" height="7" rx="1" />
+  //     </svg>
+  //   ),
+  // },
   {
     href: "/events",
     label: "Events",
@@ -59,6 +50,15 @@ const navItems = [
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
         <polyline points="22,6 12,13 2,6" />
+      </svg>
+    ),
+  },
+  {
+    href: "/chat",
+    label: "Chat",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
     ),
   },
@@ -100,10 +100,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 space-y-0.5 px-3 pt-2">
         {navItems.map((item) => {
-          const active =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
+          const active = pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}

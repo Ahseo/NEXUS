@@ -119,11 +119,13 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-[13px] text-gray-400">Profile, agent, and preferences</p>
+    <div className="flex h-full flex-col animate-fade-in">
+      <div className="border-b border-black/[0.04] px-6 py-5">
+        <h1 className="text-xl font-bold text-gray-900">Settings</h1>
+        <p className="text-[12px] text-gray-400">Profile, agent, and preferences</p>
       </div>
+
+      <div className="mx-auto w-full max-w-2xl flex-1 space-y-6 overflow-y-auto p-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
 
       <Section title="Profile">
         <div className="grid grid-cols-2 gap-3">
@@ -279,6 +281,7 @@ export default function SettingsPage() {
           ))}
         </div>
       </Section>
+      </div>
     </div>
   );
 }

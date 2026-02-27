@@ -33,18 +33,19 @@ export default function PeoplePage() {
   });
 
   return (
-    <div className="p-6 animate-fade-in">
+    <div className="flex h-full flex-col animate-fade-in">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-black/[0.04] px-6 py-5">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">People</h1>
-          <p className="text-[13px] text-gray-400">People discovered across events</p>
+          <h1 className="text-xl font-bold text-gray-900">People</h1>
+          <p className="text-[12px] text-gray-400">People discovered across events</p>
         </div>
         <span className="rounded-full bg-[#F7F7F4] px-3 py-1 text-[12px] font-medium text-gray-400 tabular-nums">
           {filtered.length} people
         </span>
       </div>
 
+      <div className="flex-1 overflow-y-auto p-6">
       {/* Filter Tabs */}
       <div className="mb-6 flex gap-1.5">
         {tabs.map((t) => (
@@ -95,6 +96,7 @@ export default function PeoplePage() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

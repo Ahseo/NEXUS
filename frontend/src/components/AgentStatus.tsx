@@ -82,8 +82,20 @@ export default function AgentStatus() {
           if (type === "agent:status") {
             const newStatus = data.status as string;
             setStatus(newStatus);
-            // Dispatch custom event so other components (e.g. dashboard) can react
             window.dispatchEvent(new CustomEvent("agent:status", { detail: newStatus }));
+          }
+
+          // Toast for applied events
+          if (type === "event:applied") {
+            const ev = data.event as Record<string, string> | undefined;
+            window.dispatchEvent(
+              new CustomEvent("event:applied", {
+                detail: {
+                  title: ev?.title,
+                  paymentRequired: data.payment_required === true,
+                },
+              })
+            );
           }
 
           const labelFn = EVENT_LABELS[type];

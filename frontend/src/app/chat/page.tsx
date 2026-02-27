@@ -123,9 +123,9 @@ export default function ChatPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-black/[0.04] px-6 py-4">
+      <div className="flex items-center justify-between border-b border-black/[0.04] px-6 py-5">
         <div>
-          <h1 className="text-[15px] font-semibold text-gray-900">Chat</h1>
+          <h1 className="text-xl font-bold text-gray-900">Chat</h1>
           <p className="text-[12px] text-gray-400">
             Ask me to find events, research people, or draft messages
           </p>
