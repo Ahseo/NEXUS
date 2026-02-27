@@ -1,6 +1,10 @@
 from enum import Enum
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Project root: backend/../.env
+_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 
 class NexusMode(str, Enum):
@@ -12,9 +16,10 @@ class NexusMode(str, Enum):
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(_ENV_FILE),
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
     # Sponsor Tool API Keys

@@ -114,6 +114,7 @@ class UserProfileDB(Base):
         String(255), unique=True, index=True, nullable=True
     )
     google_refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     role: Mapped[str] = mapped_column(Text, nullable=False)

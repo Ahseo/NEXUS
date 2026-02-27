@@ -119,3 +119,16 @@ export const agent = {
   resume: () => fetchApi("/api/agent/resume", { method: "POST" }),
   runNow: () => fetchApi("/api/agent/run-now", { method: "POST" }),
 };
+
+// Chat Endpoints
+export const chat = {
+  send: (message: string) =>
+    fetch(`${API_BASE}/api/chat/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ message }),
+    }),
+  history: () => fetchApi<{ role: string; content: string }[]>("/api/chat/history"),
+  clear: () => fetchApi("/api/chat/history", { method: "DELETE" }),
+};

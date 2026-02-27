@@ -2,18 +2,116 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Request
-from fastapi.responses import RedirectResponse
+import bcrypt  # type: ignore[import-untyped]
+from fastapi import APIRouter, HTTPException, Request, status
+from fastapi.responses import JSONResponse, RedirectResponse
 from google_auth_oauthlib.flow import Flow
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 
-from app.core.auth import create_access_token, decode_access_token, get_token_from_cookie
+from app.core.auth import create_access_token
 from app.core.config import settings
 from app.core.deps import CurrentUser, DbSession
 from app.core.google_auth import SCOPES
 from app.models.profile import UserProfileDB
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def _verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode(), hashed.encode())
+
+
+class SignupRequest(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+def _set_auth_cookie(response: JSONResponse | RedirectResponse, token: str) -> None:
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        max_age=settings.jwt_expire_minutes * 60,
+        secure=False,  # Set True in production with HTTPS
+    )
+
+
+# ── Email/Password Auth ──────────────────────────────────────────────────────
+
+
+@router.post("/signup")
+async def signup(body: SignupRequest, db: DbSession) -> JSONResponse:
+    """Register a new user with email and password."""
+    result = await db.execute(
+        select(UserProfileDB).where(UserProfileDB.email == body.email)
+    )
+    if result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered",
+        )
+
+    user = UserProfileDB(
+        id=str(uuid.uuid4()),
+        name=body.name,
+        email=body.email,
+        password_hash=_hash_password(body.password),
+        onboarding_completed=False,
+        role="",
+        company="",
+        product_description="",
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    token = create_access_token(user.id, user.email)
+    response = JSONResponse(
+        content={"user_id": user.id, "email": user.email, "onboarding_completed": False}
+    )
+    _set_auth_cookie(response, token)
+    return response
+
+
+@router.post("/login")
+async def login(body: LoginRequest, db: DbSession) -> JSONResponse:
+    """Login with email and password."""
+    result = await db.execute(
+        select(UserProfileDB).where(UserProfileDB.email == body.email)
+    )
+    user = result.scalar_one_or_none()
+
+    if not user or not user.password_hash or not _verify_password(body.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+        )
+
+    token = create_access_token(user.id, user.email)
+    response = JSONResponse(
+        content={
+            "user_id": user.id,
+            "email": user.email,
+            "onboarding_completed": user.onboarding_completed,
+        }
+    )
+    _set_auth_cookie(response, token)
+    return response
+
+
+# ── Google OAuth ──────────────────────────────────────────────────────────────
+
 
 _CLIENT_CONFIG = {
     "web": {
@@ -109,14 +207,7 @@ async def google_callback(request: Request, db: DbSession) -> RedirectResponse:
     # Redirect based on onboarding status
     redirect_path = "/onboarding" if is_new or not user.onboarding_completed else "/"
     response = RedirectResponse(f"{settings.frontend_url}{redirect_path}")
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,
-        samesite="lax",
-        max_age=settings.jwt_expire_minutes * 60,
-        secure=False,  # Set True in production with HTTPS
-    )
+    _set_auth_cookie(response, token)
     return response
 
 

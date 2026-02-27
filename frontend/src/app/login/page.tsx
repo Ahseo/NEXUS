@@ -1,21 +1,118 @@
 "use client";
 
+import { useState } from "react";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function LoginPage() {
+  const [isSignup, setIsSignup] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const endpoint = isSignup ? "/api/auth/signup" : "/api/auth/login";
+      const body = isSignup
+        ? { name, email, password }
+        : { email, password };
+
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.detail || "Something went wrong");
+        return;
+      }
+
+      const data = await res.json();
+      // Full reload so AuthProvider re-checks with the new cookie
+      if (!data.onboarding_completed) {
+        window.location.href = "/onboarding";
+      } else {
+        window.location.href = "/";
+      }
+    } catch {
+      setError("Network error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGoogleLogin = () => {
     window.location.href = `${API_BASE}/api/auth/google`;
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-950">
-      <div className="w-full max-w-sm text-center">
-        <h1 className="mb-2 text-4xl font-bold tracking-tight text-indigo-400">
-          NEXUS
-        </h1>
-        <p className="mb-8 text-sm text-gray-500">
-          Autonomous Networking Agent for SF
-        </p>
+      <div className="w-full max-w-sm">
+        <div className="text-center">
+          <h1 className="mb-2 text-4xl font-bold tracking-tight text-indigo-400">
+            NEXUS
+          </h1>
+          <p className="mb-8 text-sm text-gray-500">
+            Autonomous Networking Agent for SF
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {isSignup && (
+            <input
+              type="text"
+              placeholder="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
+            />
+          )}
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+            className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
+          />
+
+          {error && (
+            <p className="text-xs text-red-400">{error}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
+          >
+            {loading ? "..." : isSignup ? "Sign up" : "Sign in"}
+          </button>
+        </form>
+
+        <div className="my-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-gray-800" />
+          <span className="text-xs text-gray-600">or</span>
+          <div className="h-px flex-1 bg-gray-800" />
+        </div>
 
         <button
           onClick={handleGoogleLogin}
@@ -42,9 +139,17 @@ export default function LoginPage() {
           Sign in with Google
         </button>
 
-        <p className="mt-6 text-xs text-gray-600">
-          By signing in, you grant NEXUS access to your Google Calendar to
-          automatically manage event scheduling.
+        <p className="mt-6 text-center text-xs text-gray-600">
+          {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
+          <button
+            onClick={() => {
+              setIsSignup(!isSignup);
+              setError("");
+            }}
+            className="text-indigo-400 hover:text-indigo-300"
+          >
+            {isSignup ? "Sign in" : "Sign up"}
+          </button>
         </p>
       </div>
     </div>

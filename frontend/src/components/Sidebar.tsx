@@ -7,6 +7,7 @@ import { useAuth } from "./AuthProvider";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: "D" },
+  { href: "/chat", label: "Chat", icon: "C" },
   { href: "/people", label: "People", icon: "P" },
   { href: "/messages", label: "Messages", icon: "M" },
   { href: "/targets", label: "Targets", icon: "T" },

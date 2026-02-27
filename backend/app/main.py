@@ -10,6 +10,7 @@ from app.core.websocket import manager
 from app.routers import (
     agent_control,
     auth,
+    chat,
     events,
     feedback,
     graph,
@@ -23,8 +24,9 @@ from app.routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    # Startup: create tables (hackathon convenience, use Alembic in prod)
+    # Startup: recreate tables (hackathon convenience, use Alembic in prod)
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     print(f"[NEXUS] Starting in {settings.nexus_mode.value} mode")
     yield
@@ -50,6 +52,7 @@ app.add_middleware(
 
 # Register routers
 app.include_router(auth.router)  # Public: no auth required
+app.include_router(chat.router)
 app.include_router(events.router)
 app.include_router(people.router)
 app.include_router(messages.router)

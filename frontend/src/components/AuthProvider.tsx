@@ -27,7 +27,7 @@ const AuthContext = createContext<AuthContextValue>({
   logout: async () => {},
 });
 
-const PUBLIC_ROUTES = ["/login"];
+const PUBLIC_ROUTES = ["/login", "/onboarding"];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -81,6 +81,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     router.replace("/login");
   }, [router]);
+
+  const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
+
+  // Show nothing while checking auth on protected routes
+  if (loading && !isPublic) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-950">
+        <div className="text-sm text-gray-500">Loading...</div>
+      </div>
+    );
+  }
+
+  // Don't render protected content if not authenticated
+  if (!loading && !user && !isPublic) {
+    return null;
+  }
 
   return (
     <AuthContext.Provider value={{ user, loading, logout }}>
