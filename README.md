@@ -7,7 +7,7 @@ An autonomous, always-on agent that continuously scans San Francisco events, aut
 **The full loop:** Discover → Apply → Schedule → Research Attendees → Find Socials → Cold Message → Attend → Follow Up → Save to CRM → Repeat Forever
 
 **Hackathon:** [Autonomous Agents Hackathon](https://autonomous-agents-hackathon.devpost.com/) — Feb 27, 2026, AWS Builder Loft SF
-**Required:** 3+ sponsor tools | **Using:** Tavily Search + Neo4j + Yutori API + Fastino GLiNER + Render + Reka Vision (6 tools)
+**Required:** 3+ sponsor tools | **Using:** Tavily Search + Neo4j + Yutori API + Reka Vision (4 core tools)
 
 ---
 
@@ -71,9 +71,9 @@ NEXUS is a **continuously-running multi-agent system** that operates as your aut
 | Phase | What happens | Sponsor Tool |
 |-------|-------------|--------------|
 | **DISCOVER** | Scans 10+ event sources across SF for upcoming events | **Tavily Search** + **Yutori Scouting** |
-| **ANALYZE** | Extracts entities (people, companies, topics), scores relevance, builds relationship graph | **Fastino GLiNER** + **Neo4j** |
+| **ANALYZE** | Extracts entities (people, companies, topics), scores relevance, builds relationship graph | **Neo4j** |
 | **ACT** | Auto-applies/RSVPs, adds to calendar, handles waitlists | **Yutori Navigator** |
-| **CONNECT** | Researches attendees, drafts personalized cold messages, queues for user approval | **Tavily Search** + **Neo4j** |
+| **CONNECT** | Researches attendees, verifies identities, drafts personalized cold messages | **Tavily Search** + **Neo4j** + **Reka Vision** |
 
 ### What makes it autonomous
 
@@ -109,9 +109,9 @@ NEXUS is a **continuously-running multi-agent system** that operates as your aut
 │  │  ┌────────────────── TOOL BELT ────────────────────────┐    │   │
 │  │  │                                                      │    │   │
 │  │  │  tavily_search    yutori_browse    yutori_scout      │    │   │
-│  │  │  fastino_extract  neo4j_query      neo4j_write       │    │   │
-│  │  │  google_calendar  resolve_social   reka_vision       │    │   │
-│  │  │  draft_message    notify_user      get_feedback      │    │   │
+│  │  │  neo4j_query      neo4j_write      reka_vision       │    │   │
+│  │  │  google_calendar  resolve_social   draft_message     │    │   │
+│  │  │  notify_user      get_feedback                       │    │   │
 │  │  │                                                      │    │   │
 │  │  └──────────────────────────────────────────────────────┘    │   │
 │  └─────────────────────────────────────────────────────────────┘   │
@@ -258,7 +258,7 @@ async def setup_event_scouts():
 Raw Event
     │
     ▼
-[Fastino GLiNER] ──▶ Extract: people, companies, topics, roles
+[Claude NER] ──▶ Extract: people, companies, topics, roles
     │
     ▼
 [Scoring Engine] ──▶ Calculate relevance score (0-100) based on:
@@ -281,7 +281,7 @@ Raw Event
 **Implementation:**
 
 ```python
-# Analyze Agent - Entity Extraction with Fastino GLiNER 2
+# Analyze Agent - Entity Extraction with Claude
 async def extract_entities(event: RawEvent) -> EnrichedEvent:
     """Extract structured entities from event description using GLiNER 2."""
 
@@ -647,7 +647,7 @@ async def deep_research_person(
             time_range="year" if iteration == 1 else None,  # recent first
         )
 
-        # Extract structured data from search results using Fastino
+        # Extract structured data from search results using Claude
         raw_text = (
             search_result.get("answer", "") + "\n" +
             "\n".join(r["content"] for r in search_result["results"])
@@ -772,7 +772,7 @@ async def verify_social_match(
 ) -> bool:
     """
     Disambiguate: is this social profile actually our target person?
-    Uses Fastino GLiNER to extract identity signals and compare.
+    Uses Reka Vision + name matching to extract identity signals and compare.
     """
     extractor = GLiNER2.from_api()
 
@@ -1505,15 +1505,15 @@ Claude is the brain. It has tools. It decides what to do, in what order, based o
 │    │  └──────────────┘  └──────────────┘  └──────────────┘  │   │
 │    │                                                         │   │
 │    │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │   │
-│    │  │fastino_extract│ │ neo4j_query  │  │neo4j_write   │  │   │
-│    │  │(NER, classify│  │(find connect-│  │(save people, │  │   │
-│    │  │ structure)   │  │ ions, score) │  │ events)      │  │   │
+│    │  │ neo4j_query  │  │neo4j_write   │  │reka_vision   │  │   │
+│    │  │(find connect-│  │(save people, │  │(verify faces,│  │   │
+│    │  │ ions, score) │  │ events)      │  │ analyze posts│  │   │
 │    │  └──────────────┘  └──────────────┘  └──────────────┘  │   │
 │    │                                                         │   │
 │    │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │   │
-│    │  │google_calendar│ │reka_vision   │  │resolve_social│  │   │
-│    │  │(schedule,    │  │(verify faces,│  │(find X, IG,  │  │   │
-│    │  │ check busy)  │  │ analyze posts│  │ LinkedIn)    │  │   │
+│    │  │google_calendar│ │resolve_social│  │get_feedback  │  │   │
+│    │  │(schedule,    │  │(find X, IG,  │  │(read user    │  │   │
+│    │  │ check busy)  │  │ LinkedIn)    │  │ decisions)   │  │   │
 │    │  └──────────────┘  └──────────────┘  └──────────────┘  │   │
 │    │                                                         │   │
 │    │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │   │
@@ -1618,29 +1618,24 @@ TOOLS = [
         }
     },
     {
-        "name": "fastino_extract",
+        "name": "reka_vision",
         "description": (
-            "Extract structured entities from text using GLiNER 2. "
-            "Can extract: people, companies, job titles, topics, dates, etc. "
-            "Can also classify text (event type, sentiment) and extract "
-            "structured JSON (event metadata, person profiles). "
-            "Very fast (<150ms). Use this before storing data in Neo4j."
+            "Analyze images or visual web content. Use this to: "
+            "compare profile photos across platforms (same person?), "
+            "analyze Instagram/X posts for conversation hooks, "
+            "extract info from event flyers/images that text scraping misses."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "text": {"type": "string", "description": "Text to extract from"},
-                "entity_types": {
+                "url": {"type": "string", "description": "URL of image or page to analyze"},
+                "prompt": {
+                    "type": "string",
+                    "description": "What to analyze or compare in the visual content"
+                },
+                "compare_urls": {
                     "type": "array", "items": {"type": "string"},
-                    "description": "Entity types to extract, e.g. ['person', 'company', 'topic']"
-                },
-                "structured_schema": {
-                    "type": "object",
-                    "description": "Optional: JSON schema for structured extraction"
-                },
-                "classify": {
-                    "type": "object",
-                    "description": "Optional: classification task, e.g. {'event_type': ['conference','meetup','dinner']}"
+                    "description": "Optional: multiple URLs to compare (e.g. profile photos)"
                 }
             },
             "required": ["text"]
@@ -1971,8 +1966,8 @@ class NexusAgent:
             return await execute_yutori_browse(tool_input)
         elif tool_name == "yutori_scout":
             return await execute_yutori_scout(tool_input)
-        elif tool_name == "fastino_extract":
-            return await execute_fastino_extract(tool_input)
+        elif tool_name == "reka_vision":
+            return await execute_reka_vision(tool_input)
         elif tool_name == "neo4j_query":
             return await execute_neo4j_query(tool_input)
         elif tool_name == "neo4j_write":
@@ -2038,11 +2033,9 @@ This is not scripted. This is Claude actually thinking:
          and score them. The AI Founders Dinner looks very relevant —
          let me check the details..."
 
-[AGENT] Using tool: fastino_extract
-         Input: {"text": "AI Founders Dinner — intimate gathering of 30 founders
-                  and investors...", "entity_types": ["person", "company", "topic"]}
-         Result: speakers: ["Sarah Chen (Sequoia)", "James Liu (a16z)"],
-                 topics: ["AI agents", "fundraising"]
+[AGENT] Thinking: "Let me extract entities from this event page..."
+         Extracted: speakers: ["Sarah Chen (Sequoia)", "James Liu (a16z)"],
+                    topics: ["AI agents", "fundraising"]
 
 [AGENT] Thinking: "Score: AI topics match (✓), Sequoia + a16z are target
          companies (✓), dinner format is preferred (✓), Thursday evening (✓).
@@ -2207,32 +2200,7 @@ This is not scripted. This is Claude actually thinking:
 
 **Why Yutori:** Navigator can actually *do things* on websites — fill application forms, RSVP, join waitlists. No other tool in the sponsor list can autonomously interact with web UIs. The Scouting API makes discovery truly autonomous (push-based, not pull-based).
 
-### Tool 4: Fastino GLiNER (Bonus)
-
-**Role:** Entity extraction from event pages and people profiles
-
-| Mode | Usage |
-|------|-------|
-| `ner` | Extract person names, companies, job titles, technologies, topics from raw event text |
-| `structured` | Parse event pages into structured schema (date, time, speakers, capacity, etc.) |
-| `classification` | Classify event type (networking, conference, workshop, dinner, etc.) |
-
-**Why Fastino:** GLiNER runs in <150ms on CPU. We process hundreds of events — fast, structured extraction without LLM inference costs is critical. Also powers social media account disambiguation (is this LinkedIn "Sarah Chen" the same person?).
-
-### Tool 5: Render (Deployment + Background Workers)
-
-**Role:** Host the entire stack — frontend, backend API, and the **always-on daemon worker**
-
-| Service | Render Type | Purpose |
-|---------|-------------|---------|
-| `nexus-web` | Web Service (Node) | Next.js frontend dashboard |
-| `nexus-api` | Web Service (Python) | FastAPI backend |
-| `nexus-daemon` | **Background Worker** | The autonomous agent loop that never stops |
-| `nexus-db` | PostgreSQL | App state, user profiles, event history |
-
-**Why Render:** The Background Worker is critical — it's what makes the agent truly autonomous. Not a cron job. Not a lambda. A persistent process that runs the discovery→analyze→act→connect loop 24/7. Render's worker type is perfect for this.
-
-### Tool 6: Reka Vision (Social Verification + Content Analysis)
+### Tool 4: Reka Vision (Social Verification + Content Analysis)
 
 **Role:** Visual intelligence for profile verification and social media content analysis
 
@@ -2472,7 +2440,7 @@ interface Event {
   description: string;
   source: "eventbrite" | "luma" | "meetup" | "partiful" | "twitter" | "other";
 
-  // Extracted by Fastino GLiNER
+  // Extracted by Claude NER
   event_type: "conference" | "meetup" | "dinner" | "workshop" | "happy_hour" | "demo_day";
   date: DateTime;
   end_date?: DateTime;
@@ -2897,7 +2865,7 @@ interface WSEvents {
 - [ ] Initialize Next.js project with TypeScript
 - [ ] Set up FastAPI backend
 - [ ] Provision Neo4j AuraDB (free tier: 200k nodes)
-- [ ] Obtain API keys: Tavily, Yutori, Fastino
+- [ ] Obtain API keys: Tavily, Yutori, Reka
 - [ ] Set up Google Calendar OAuth
 - [ ] Deploy skeleton to Render (sponsor tool for hosting)
 ```
@@ -2910,7 +2878,7 @@ interface WSEvents {
   - [ ] Yutori Scouting setup (continuous monitoring)
   - [ ] Event deduplication logic
 - [ ] Implement Analyze Agent
-  - [ ] Fastino GLiNER entity extraction
+  - [ ] Claude-based entity extraction (NER)
   - [ ] Neo4j schema creation + graph population
   - [ ] Relevance scoring engine
 - [ ] Wire up Discovery → Analysis pipeline
@@ -2936,7 +2904,7 @@ interface WSEvents {
 ```
 - [ ] People research pipeline
   - [ ] Tavily deep search on attendees
-  - [ ] Fastino entity extraction on profiles
+  - [ ] Reka Vision profile verification
   - [ ] Neo4j graph-based connection scoring
 - [ ] Cold message generation
   - [ ] Context-aware message templates
@@ -2979,7 +2947,7 @@ interface WSEvents {
 
 ```
 - [ ] Add unit tests for scoring, deduplication, preference updates
-- [ ] Add contract tests for Tavily/Yutori/Fastino/Neo4j clients (mocked)
+- [ ] Add contract tests for Tavily/Yutori/Neo4j/Reka clients (mocked)
 - [ ] Add orchestrator tests for routing rules (auto-apply vs suggest)
 - [ ] Add 1 golden end-to-end test using recorded fixtures
 - [ ] Define release gate thresholds (pipeline success, duplicate rate, message quality)
@@ -3001,11 +2969,10 @@ interface WSEvents {
 | **Graph Database** | Neo4j AuraDB (free tier) | Knowledge graph, relationship queries |
 | **Search** | Tavily Search API | AI-optimized search for agents |
 | **Web Agent** | Yutori Navigator + Scouting | Autonomous web browsing + monitoring |
-| **NER/Extraction** | Fastino GLiNER 2 | Fast entity extraction, <150ms |
+| **Vision** | Reka Vision | Profile verification + social content analysis |
 | **Calendar** | Google Calendar API | Most widely used calendar |
 | **Auth** | NextAuth.js + Google OAuth | Calendar integration requires OAuth |
 | **Real-time** | WebSocket (FastAPI) | Live UI updates |
-| **Hosting** | Render | Sponsor tool + easy deploy |
 | **LLM** | Claude API (agent brain + messages) | Powers the ReAct loop AND generates personalized messages |
 
 ---
@@ -3068,7 +3035,7 @@ databases:
 | **Autonomy** | Agents run 24/7 — Yutori Scouting monitors event sources, Discovery triggers on webhooks, Action auto-applies, Connect auto-drafts. User only reviews and provides feedback. The system learns and becomes MORE autonomous over time. |
 | **Idea** | Solves a real, painful problem for every SF professional. The "networking chief-of-staff" concept is immediately understandable. Feedback loop makes it genuinely useful, not just a demo. |
 | **Technical Implementation** | Multi-agent architecture with LangGraph orchestration, Neo4j knowledge graph for relationship intelligence, real-time WebSocket UI, preference learning engine. Clean separation of concerns. |
-| **Tool Use** | Deep integration of 5 sponsor tools: Tavily (discovery + research), Neo4j (knowledge graph), Yutori (web automation + monitoring), Fastino (entity extraction), Render (deployment). Each tool used for its core strength. |
+| **Tool Use** | Deep integration of 4 sponsor tools: Tavily (discovery + research), Neo4j (knowledge graph), Yutori (web automation + monitoring), Reka Vision (identity verification + social analysis). Each tool used for its core strength. |
 | **Presentation** | Live demo: onboard → watch agent discover real events → see auto-apply happen → explore people graph → approve cold message. 3-min story arc: problem → solution → live demo → impact. |
 
 ---
@@ -3100,9 +3067,9 @@ databases:
 
 2:00 - 2:30  TECH
   Flash architecture diagram.
-  "5 sponsor tools: Tavily searches, Fastino extracts,
-   Neo4j maps relationships, Yutori applies and monitors,
-   Render hosts it all. LangGraph orchestrates. Feedback loop learns."
+  "4 sponsor tools: Tavily searches, Neo4j maps relationships,
+   Yutori applies and monitors, Reka Vision verifies identities.
+   LangGraph orchestrates. Feedback loop learns."
 
 2:30 - 3:00  IMPACT
   "NEXUS has been running for 6 hours. It discovered 47 events,
@@ -3124,15 +3091,14 @@ databases:
 |---------|----------|------|
 | User onboarding (profile + preferences) | P0 | 30 min |
 | Tavily event discovery (10+ real SF events) | P0 | 45 min |
-| Fastino GLiNER entity extraction | P0 | 30 min |
 | Neo4j graph creation + query | P0 | 45 min |
 | Relevance scoring engine | P0 | 30 min |
 | Yutori Navigator auto-apply (1 real event) | P0 | 45 min |
 | Dashboard UI (event feed + accept/reject) | P0 | 60 min |
 | Feedback loop (reject with reason → score update) | P0 | 30 min |
+| Reka Vision profile verification | P0 | 30 min |
 | Google Calendar sync | P1 | 20 min |
 | Cold message drafting | P1 | 20 min |
-| Deploy to Render | P0 | 15 min |
 | **Total** | | **5h 30min** |
 
 ### What we SKIP for MVP (nice-to-have)
@@ -3152,9 +3118,8 @@ If any sponsor API is down or has issues:
 |------|----------|
 | Yutori Navigator fails on a site | Pre-record a successful apply, show Yutori task ID + view_url as proof |
 | Tavily rate limit hit | Pre-cache 20 event results in DB, show live search alongside |
-| Fastino API unreachable | Use `GLiNER2.from_pretrained()` locally (model is only 205MB) |
 | Neo4j AuraDB connection issues | Use local Neo4j Docker as backup |
-| Render deploy fails | Demo from localhost, show render.yaml as deployment proof |
+| Reka Vision API down | Fall back to name-based matching without photo verification |
 
 ---
 
@@ -3165,8 +3130,7 @@ If any sponsor API is down or has issues:
 | **Tavily** | 1,000 searches/mo | ~100 searches | $0 |
 | **Neo4j AuraDB** | 200k nodes free | ~500 nodes | $0 |
 | **Yutori** | Hackathon credits (check with sponsor) | ~20 browsing tasks | $0 (with credits) |
-| **Fastino GLiNER** | API key from gliner.pioneer.ai | ~200 extractions | $0 (free tier) |
-| **Render** | Free tier (750 hours/mo) | 1 day | $0 |
+| **Reka Vision** | Hackathon credits | ~50 image analyses | $0 (with credits) |
 | **Google Calendar API** | Free (with OAuth) | ~20 event creates | $0 |
 | **Claude API** | Existing credits | ~50 message generations | ~$2 |
 | **Total** | | | **~$2** |
@@ -3280,7 +3244,7 @@ Validation is a first-class system: every layer must prove its behavior before s
 | Layer | Goal | Example Assertions | Frequency |
 |-------|------|--------------------|-----------|
 | **Unit tests** | Verify deterministic logic | score range is 0-100, dedup merges near-identical events, preference weights update correctly | Every commit |
-| **Contract tests** | Verify external API adapters | Tavily result parsing survives missing fields, Yutori status mapping is stable, Neo4j query responses map to models | Every commit |
+| **Contract tests** | Verify external API adapters | Tavily result parsing survives missing fields, Yutori status mapping is stable, Neo4j query responses map to models, Reka Vision response parsing | Every commit |
 | **Agent-node tests** | Verify each agent in isolation | Discovery returns normalized `RawEvent[]`; Analyze enriches with entities + score; Connect returns ranked people + draft objects | Every commit |
 | **Orchestrator tests** | Verify routing and state transitions | `score >= auto_apply_threshold` routes to Action; otherwise Suggest path; failed action does not trigger unsafe downstream actions | Every commit |
 | **Integration/E2E tests** | Verify full cycle behavior | discover -> analyze -> apply(dry-run) -> research -> draft pipeline produces expected artifacts | PR + pre-release |
@@ -3441,8 +3405,8 @@ tests/
   contract/
     test_tavily_client.py
     test_yutori_client.py
-    test_fastino_client.py
     test_neo4j_client.py
+    test_reka_client.py
   agents/
     test_discovery_agent.py
     test_analyze_agent.py
@@ -3483,8 +3447,8 @@ nexus/
 │   ├── integrations/                 # External API clients
 │   │   ├── tavily_client.py
 │   │   ├── yutori_client.py
-│   │   ├── fastino_client.py
 │   │   ├── neo4j_client.py
+│   │   ├── reka_client.py
 │   │   └── google_calendar.py
 │   │
 │   ├── engine/                       # Core logic
