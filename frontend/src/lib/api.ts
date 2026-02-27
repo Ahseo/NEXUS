@@ -18,6 +18,16 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function fetchPublic<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    credentials: "include",
+    ...options,
+  });
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json() as Promise<T>;
+}
+
 // Auth Endpoints
 export const auth = {
   me: () => fetchApi<{ user_id: string; email: string }>("/api/auth/me"),
@@ -120,10 +130,25 @@ export const feedback = {
   stats: () => fetchApi("/api/feedback/stats"),
 };
 
-// Graph Endpoints
+// Graph Endpoints (public — no auth redirect)
 export const graph = {
-  network: () => fetchApi("/api/graph/network"),
-  suggestions: () => fetchApi("/api/graph/suggestions"),
+  network: () => fetchPublic("/api/graph/network"),
+  ranked: (params?: { role?: string; topic?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.role) qs.set("role", params.role);
+    if (params?.topic) qs.set("topic", params.topic);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    const q = qs.toString();
+    return fetchPublic(`/api/graph/ranked${q ? `?${q}` : ""}`);
+  },
+  seedEvent: (url: string, title: string) =>
+    fetchPublic("/api/graph/seed-event", {
+      method: "POST",
+      body: JSON.stringify({ url, title }),
+    }),
+  search: (q: string) => fetchPublic(`/api/graph/search?q=${encodeURIComponent(q)}`),
+  enrichSns: () => fetchPublic("/api/graph/enrich-sns", { method: "POST" }),
+  suggestions: () => fetchPublic("/api/graph/suggestions"),
 };
 
 // Agent Control

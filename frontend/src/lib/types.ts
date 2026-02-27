@@ -120,6 +120,45 @@ export interface UserProfile {
   auto_schedule_threshold: number;
 }
 
+// === Graph Types ===
+
+export interface GraphNode {
+  id: string;
+  name: string;
+  title?: string;
+  company?: string;
+  role?: string;
+  linkedin?: string;
+  twitter?: string;
+  facebook?: string;
+  instagram?: string;
+  github?: string;
+  website?: string;
+  email?: string;
+  avatar_color: string;
+  connection_score: number;
+  is_self?: boolean;
+  topics: string[];
+  events: string[];
+  connection_count?: number;
+  rank?: number;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  strength: number;
+  type: string;
+}
+
+export interface NetworkGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  events: { id: string; title: string; url: string; date: string; location: string }[];
+  user: { email: string; interests: string[] } | null;
+  stats: { total_people: number; total_connections: number; total_events: number };
+}
+
 // === WebSocket Events ===
 
 export interface WSEvents {

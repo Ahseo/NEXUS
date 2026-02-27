@@ -37,3 +37,6 @@ coverage/
 
 # Database
 *.sqlite3
+backend/debug_*.png
+backend/debug_*.html
+backend/participants.json
