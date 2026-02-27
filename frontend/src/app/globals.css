@@ -162,3 +162,88 @@ input[type="range"]::-webkit-slider-thumb:hover {
   background: rgba(249, 115, 22, 0.15);
   color: inherit;
 }
+
+/* ── Agent Character Animations ─────────────────────── */
+
+@keyframes agent-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes agent-bounce-alt {
+  0%, 100% { transform: translateY(-2px); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes agent-blink {
+  0%, 38%, 42%, 100% { transform: scaleY(1); }
+  40% { transform: scaleY(0.05); }
+}
+@keyframes agent-look {
+  0%, 40%, 100% { transform: translateX(0); }
+  50% { transform: translateX(2px); }
+  70% { transform: translateX(-2px); }
+}
+@keyframes arm-type-l {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-12deg); }
+}
+@keyframes arm-type-r {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(12deg); }
+}
+@keyframes arm-wave {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-25deg); }
+  75% { transform: rotate(10deg); }
+}
+@keyframes arm-scan {
+  0%, 100% { transform: rotate(5deg); }
+  50% { transform: rotate(-15deg); }
+}
+@keyframes radar-sweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes radar-ring {
+  0% { transform: scale(0.8); opacity: 0.6; }
+  100% { transform: scale(2); opacity: 0; }
+}
+@keyframes bar-grow {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+@keyframes sparkle-pop {
+  0%, 100% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1); opacity: 1; }
+}
+@keyframes node-orbit {
+  0% { transform: rotate(0deg) translateX(12px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(12px) rotate(-360deg); }
+}
+@keyframes msg-float {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-16px) scale(0.7); opacity: 0; }
+}
+@keyframes bubble-pop {
+  0% { transform: scale(0.8) translateY(6px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes task-typing {
+  0% { width: 0; }
+  100% { width: 100%; }
+}
+@keyframes tail-wag {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+@keyframes cheek-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+@keyframes log-enter {
+  0% { transform: translateX(-8px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes progress-fill {
+  0% { width: 0%; }
+  100% { width: var(--progress); }
+}
