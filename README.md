@@ -1,6 +1,6 @@
-# NEXUS - Autonomous Networking Agent for SF
+# WINGMAN - Autonomous Networking Agent for SF
 
-> **"ManyChat for events — turn it on, it never stops. Discovers events, applies for you, stalks every attendee, finds their socials, and makes the first move."**
+> **Your always-on AI chief of staff for networking. Finds the right events, auto-applies, deep-researches every attendee, and makes the first move — so you never show up blind again.**
 
 An autonomous, always-on agent that continuously scans San Francisco events, auto-applies based on your profile & preferences, schedules everything on your calendar, **deep-researches every attendee (iteratively, until it knows enough)**, resolves their social media accounts from just a name, drafts personalized cold outreach **before the event**, and sends follow-up messages **after** — all with a human-in-the-loop feedback system that learns and improves over time.
 
@@ -46,11 +46,11 @@ SF professionals drown in event noise. Hundreds of meetups, conferences, happy h
 
 ## Solution Overview
 
-NEXUS is a **continuously-running multi-agent system** that operates as your autonomous networking chief-of-staff:
+WINGMAN is a **continuously-running multi-agent system** that operates as your autonomous networking chief-of-staff:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     NEXUS AGENT SYSTEM                       │
+│                     WINGMAN AGENT SYSTEM                       │
 │                                                              │
 │  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐ │
 │  │ DISCOVER │──▶│ ANALYZE  │──▶│   ACT    │──▶│ CONNECT  │ │
@@ -480,7 +480,7 @@ async def schedule_event(event: EnrichedEvent, user_profile: UserProfile):
             f"Relevance Score: {event.relevance_score}/100\n"
             f"Key People: {', '.join(p['name'] for p in event.structured.speakers[:5])}\n"
             f"Topics: {', '.join(event.structured.topics)}\n\n"
-            f"--- NEXUS Auto-scheduled ---"
+            f"--- WINGMAN Auto-scheduled ---"
         ),
         "start": {
             "dateTime": event.structured.start_datetime.isoformat(),
@@ -514,7 +514,7 @@ async def schedule_event(event: EnrichedEvent, user_profile: UserProfile):
 
 **Trigger:** Event application confirmed OR event page has visible attendee list
 
-**This is the killer feature.** Most networking tools show you a name. NEXUS builds a full dossier.
+**This is the killer feature.** Most networking tools show you a name. WINGMAN builds a full dossier.
 
 #### Step 1: Scrape Attendees from Event Platforms
 
@@ -1203,7 +1203,7 @@ async def discover_attendees_indirect(event: EnrichedEvent) -> list[RawAttendee]
 
 ### The Always-On Agent (Replaces Fixed Daemon)
 
-The NexusDaemon from the old design is **gone**. Instead, Claude IS the daemon.
+The WingmanDaemon from the old design is **gone**. Instead, Claude IS the daemon.
 It runs as a Render Background Worker, thinking and acting in a continuous loop.
 
 The key difference: **the old daemon had 5 fixed loops running on timers.**
@@ -1224,7 +1224,7 @@ OLD (fixed pipeline):                 NEW (thinking agent):
                                        1 brain, full autonomy
 ```
 
-The old NexusDaemon code is kept below for reference on the async tool
+The old WingmanDaemon code is kept below for reference on the async tool
 implementations, but the orchestration logic is now entirely in Claude's
 system prompt + ReAct loop above.
 
@@ -1234,15 +1234,15 @@ system prompt + ReAct loop above.
 import asyncio
 from datetime import datetime, timedelta
 
-class NexusDaemon:
+class WingmanDaemon:
     """
-    The autonomous daemon that runs the NEXUS pipeline continuously.
+    The autonomous daemon that runs the WINGMAN pipeline continuously.
     Start it once. It discovers, analyzes, applies, and connects — forever.
     """
 
     def __init__(self, user_profile: UserProfile):
         self.user = user_profile
-        self.pipeline = nexus_pipeline  # LangGraph compiled graph
+        self.pipeline = wingman_pipeline  # LangGraph compiled graph
         self.running = True
 
         # Cycle configuration (adapts over time)
@@ -1256,9 +1256,9 @@ class NexusDaemon:
 
     async def start(self):
         """Main daemon loop — runs indefinitely."""
-        print(f"[NEXUS] Daemon started for {self.user.name}")
-        print(f"[NEXUS] Discovery every {self.discovery_interval}")
-        print(f"[NEXUS] Running autonomously. Ctrl+C or UI pause to stop.")
+        print(f"[WINGMAN] Daemon started for {self.user.name}")
+        print(f"[WINGMAN] Discovery every {self.discovery_interval}")
+        print(f"[WINGMAN] Running autonomously. Ctrl+C or UI pause to stop.")
 
         # Run ALL loops concurrently — this is what makes it truly autonomous
         await asyncio.gather(
@@ -1418,13 +1418,13 @@ class NexusDaemon:
     async def stop(self):
         """Gracefully stop the daemon."""
         self.running = False
-        print("[NEXUS] Daemon stopping...")
+        print("[WINGMAN] Daemon stopping...")
 
 
 # Entry point
 async def main():
     user = await load_user_profile()
-    daemon = NexusDaemon(user)
+    daemon = WingmanDaemon(user)
     await daemon.start()
 
 if __name__ == "__main__":
@@ -1435,7 +1435,7 @@ if __name__ == "__main__":
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                    NEXUS DAEMON TIMELINE                         │
+│                    WINGMAN DAEMON TIMELINE                         │
 │                                                                  │
 │  6:00 AM  [DISCOVER] Tavily scans 10+ event platforms           │
 │           Found 8 new SF events for this week                    │
@@ -1461,10 +1461,10 @@ if __name__ == "__main__":
 │           Draft message → Marcus Johnson (Twitter DM) ✓         │
 │           Draft message → Alex Rivera (Email) ✓                 │
 │                                                                  │
-│  7:00 AM  You wake up. Open NEXUS dashboard.                    │
+│  7:00 AM  You wake up. Open WINGMAN dashboard.                    │
 │           See: 2 events applied, 4 suggested, 3 messages ready  │
 │           Approve 2 messages, edit 1, reject 1 event            │
-│           NEXUS learns from every action.                        │
+│           WINGMAN learns from every action.                        │
 │                                                                  │
 │  12:00 PM [DISCOVER] Next cycle. Finds 3 more events.           │
 │           Scoring has IMPROVED because of morning feedback.      │
@@ -1482,7 +1482,7 @@ if __name__ == "__main__":
 
 ## Core Architecture: Claude as Central Orchestrator (ReAct Agent)
 
-**NEXUS is not a scripted pipeline. It's an AI agent that thinks, decides, and acts.**
+**WINGMAN is not a scripted pipeline. It's an AI agent that thinks, decides, and acts.**
 
 Claude is the brain. It has tools. It decides what to do, in what order, based on context. When something fails, it reasons about alternatives. When the user gives feedback, it adjusts strategy in real-time.
 
@@ -1795,7 +1795,7 @@ TOOLS = [
 ]
 
 # ── The System Prompt: Claude's Mission ──
-SYSTEM_PROMPT = """You are NEXUS, an autonomous networking agent for {user_name}.
+SYSTEM_PROMPT = """You are WINGMAN, an autonomous networking agent for {user_name}.
 You run 24/7. Your mission: discover relevant events in {city}, apply to them,
 research attendees, find their social accounts, draft personalized messages,
 and learn from every interaction.
@@ -1851,7 +1851,7 @@ THINK about what's most valuable to do right now.
 
 
 # ── The Agent Loop ──
-class NexusAgent:
+class WingmanAgent:
     """
     Claude-powered autonomous agent. Not a pipeline — a thinking agent
     that decides what to do next based on the full context.
@@ -1868,9 +1868,9 @@ class NexusAgent:
     async def run_forever(self):
         """The main agent loop. Runs until stopped."""
 
-        print(f"[NEXUS] Agent started for {self.user['user_name']}")
-        print(f"[NEXUS] Brain: Claude claude-sonnet-4-5-20250514 | Tools: 13 | Mode: Autonomous")
-        print(f"[NEXUS] Running forever. The agent thinks for itself.\n")
+        print(f"[WINGMAN] Agent started for {self.user['user_name']}")
+        print(f"[WINGMAN] Brain: Claude claude-sonnet-4-5-20250514 | Tools: 13 | Mode: Autonomous")
+        print(f"[WINGMAN] Running forever. The agent thinks for itself.\n")
 
         # Initial kickoff message
         self.conversation_history = [
@@ -1993,7 +1993,7 @@ class NexusAgent:
 # ── Entry Point ──
 async def main():
     user = await load_user_profile_from_db()
-    agent = NexusAgent(user)
+    agent = WingmanAgent(user)
     await agent.run_forever()
 
 if __name__ == "__main__":
@@ -2250,7 +2250,7 @@ async def analyze_social_content(person: PersonProfile) -> list[str]:
 
 ## Feedback Loop & Personalization Engine
 
-This is the core differentiator. NEXUS learns from every user interaction.
+This is the core differentiator. WINGMAN learns from every user interaction.
 
 ### Feedback Signals
 
@@ -2523,7 +2523,7 @@ interface Feedback {
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  NEXUS                          [Profile] [Settings] [?] │
+│  WINGMAN                          [Profile] [Settings] [?] │
 ├──────────────────────────────────────────────────────────┤
 │                                                          │
 │  📊 This Week: 3 events scheduled | 2 pending review    │
@@ -2639,7 +2639,7 @@ interface Feedback {
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  Welcome to NEXUS                                        │
+│  Welcome to WINGMAN                                        │
 │  Let's set up your autonomous networking agent           │
 ├──────────────────────────────────────────────────────────┤
 │                                                          │
@@ -2714,7 +2714,7 @@ interface Feedback {
 │                                                          │
 │  Step 4 of 4: Automation Level                           │
 │                                                          │
-│  How autonomous should NEXUS be?                         │
+│  How autonomous should WINGMAN be?                         │
 │                                                          │
 │  Event Applications:                                     │
 │  ( ) Full auto — apply to everything above threshold     │
@@ -2732,7 +2732,7 @@ interface Feedback {
 │                                                          │
 │  [Connect Google Calendar]  [Connect LinkedIn]           │
 │                                                          │
-│                               [Launch NEXUS →]           │
+│                               [Launch WINGMAN →]           │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -2986,7 +2986,7 @@ interface WSEvents {
 services:
   # FastAPI Backend
   - type: web
-    name: nexus-api
+    name: wingman-api
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
@@ -3008,29 +3008,29 @@ services:
 
   # Next.js Frontend
   - type: web
-    name: nexus-web
+    name: wingman-web
     runtime: node
     buildCommand: npm run build
     startCommand: npm start
 
   # Background Worker (Agent Loop)
   - type: worker
-    name: nexus-agents
+    name: wingman-agents
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: python -m agents.orchestrator
 
 databases:
-  - name: nexus-db
+  - name: wingman-db
     plan: free
-    databaseName: nexus
+    databaseName: wingman
 ```
 
 ---
 
 ## Judging Criteria Alignment
 
-| Criteria (20% each) | How NEXUS wins |
+| Criteria (20% each) | How WINGMAN wins |
 |---------------------|----------------|
 | **Autonomy** | Agents run 24/7 — Yutori Scouting monitors event sources, Discovery triggers on webhooks, Action auto-applies, Connect auto-drafts. User only reviews and provides feedback. The system learns and becomes MORE autonomous over time. |
 | **Idea** | Solves a real, painful problem for every SF professional. The "networking chief-of-staff" concept is immediately understandable. Feedback loop makes it genuinely useful, not just a demo. |
@@ -3049,12 +3049,12 @@ databases:
    You miss the dinner where your future investor was sitting."
 
 0:30 - 1:00  SOLUTION
-  "Meet NEXUS — your autonomous networking chief-of-staff."
+  "Meet WINGMAN — your autonomous networking chief-of-staff."
   Show onboarding: enter role, company, goals, preferences.
   "It learns what you care about and acts on your behalf."
 
 1:00 - 2:00  LIVE DEMO
-  Show dashboard: "While we were talking, NEXUS found 12 events."
+  Show dashboard: "While we were talking, WINGMAN found 12 events."
   Click into top-scored event: show entity extraction, people analysis.
   "It already applied to this dinner — here's the confirmation."
   Show calendar: event auto-synced.
@@ -3063,7 +3063,7 @@ databases:
   Click "Send" — message goes out.
 
   Reject an event: select reason "not my industry" →
-  "Watch the score update — NEXUS learns in real-time."
+  "Watch the score update — WINGMAN learns in real-time."
 
 2:00 - 2:30  TECH
   Flash architecture diagram.
@@ -3072,10 +3072,10 @@ databases:
    LangGraph orchestrates. Feedback loop learns."
 
 2:30 - 3:00  IMPACT
-  "NEXUS has been running for 6 hours. It discovered 47 events,
+  "WINGMAN has been running for 6 hours. It discovered 47 events,
    recommended 18, I accepted 12, it applied to all 12,
    10 confirmed, and I have 8 personalized intros ready to send.
-   That would have taken me 4 hours manually. NEXUS did it in the
+   That would have taken me 4 hours manually. WINGMAN did it in the
    background while I was coding."
 ```
 
@@ -3236,7 +3236,7 @@ async def apply_with_retry(event: EnrichedEvent, user: UserProfile) -> dict:
 
 ## Testing & Validation Strategy
 
-NEXUS is autonomous, so correctness cannot depend on ad-hoc manual checks.
+WINGMAN is autonomous, so correctness cannot depend on ad-hoc manual checks.
 Validation is a first-class system: every layer must prove its behavior before side effects (apply/send/schedule) are allowed.
 
 ### 1) Test Pyramid (What to test where)
@@ -3296,7 +3296,7 @@ Runtime policy:
 Recommended runtime flags:
 
 ```bash
-NEXUS_MODE=dry_run|replay|canary|live
+WINGMAN_MODE=dry_run|replay|canary|live
 ALLOW_SIDE_EFFECTS=false|true
 MAX_AUTO_APPLIES_PER_DAY=1
 MAX_AUTO_SEND_MESSAGES_PER_DAY=0
@@ -3428,7 +3428,7 @@ tests/
 ## Project Structure
 
 ```
-nexus/
+wingman/
 ├── README.md
 ├── render.yaml
 │
