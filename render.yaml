@@ -24,9 +24,7 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: DATABASE_URL
-        fromDatabase:
-          name: nexus-db
-          property: connectionURI
+        sync: false
       - key: SECRET_KEY
         generateValue: true
       - key: NEXUS_MODE
@@ -46,8 +44,3 @@ services:
     runtime: python
     buildCommand: pip install -r backend/requirements.txt
     startCommand: cd backend && python -m app.agents.orchestrator
-
-databases:
-  - name: nexus-db
-    plan: free
-    databaseName: nexus
