@@ -415,6 +415,118 @@ async def enrich_all_people_sns() -> dict[str, Any]:
     return {"enriched": enriched_count, "total": len(people), "details": results}
 
 
+async def add_person_to_graph(
+    name: str,
+    title: str = "",
+    company: str = "",
+    role: str = "participant",
+    linkedin: str = "",
+    twitter: str = "",
+    github: str = "",
+    avatar_url: str = "",
+    topics: list[str] | None = None,
+    event_url: str = "https://autonomous-agents-hackathon.devpost.com",
+) -> dict[str, Any]:
+    """Add a single person to the Neo4j graph."""
+    neo4j = await get_neo4j()
+    
+    pid = _id()
+    colors = ["#6366f1", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#3b82f6", "#ec4899", "#14b8a6", "#f97316", "#06b6d4"]
+    import random
+    color = random.choice(colors)
+    
+    # Create person node
+    await neo4j.execute_write(
+        "CREATE (p:Person {id: $id, name: $name, title: $title, company: $company, "
+        "role: $role, linkedin: $linkedin, twitter: $twitter, github: $github, "
+        "avatar_url: $avatar_url, avatar_color: $color, "
+        "connection_score: $score, is_self: false}) "
+        "WITH p MATCH (e:Event {url: $url}) CREATE (p)-[:ATTENDED]->(e)",
+        {
+            "id": pid, "name": name, "title": title, "company": company,
+            "role": role, "linkedin": linkedin, "twitter": twitter, "github": github,
+            "avatar_url": avatar_url, "color": color, "score": 60, "url": event_url,
+        },
+    )
+    
+    # Add topics
+    for topic in (topics or []):
+        await neo4j.execute_write(
+            "MERGE (t:Topic {name: $name}) "
+            "WITH t MATCH (p:Person {id: $pid}) CREATE (p)-[:EXPERT_IN]->(t)",
+            {"name": topic, "pid": pid},
+        )
+    
+    # Connect to "Me"
+    await neo4j.execute_write(
+        "MATCH (me:Person {id: 'me'}), (p:Person {id: $pid}) "
+        "CREATE (me)-[:CONNECTED_TO {strength: 48, source: 'event'}]->(p)",
+        {"pid": pid},
+    )
+    
+    await neo4j.disconnect()
+    return {"id": pid, "name": name, "status": "added"}
+
+
+async def bulk_import_participants(
+    participants: list[dict[str, Any]],
+    event_url: str = "https://autonomous-agents-hackathon.devpost.com",
+) -> dict[str, Any]:
+    """Bulk import participants from JSON array."""
+    neo4j = await get_neo4j()
+    
+    colors = ["#6366f1", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444", "#3b82f6", "#ec4899", "#14b8a6", "#f97316", "#06b6d4"]
+    added = 0
+    
+    for i, p in enumerate(participants):
+        pid = _id()
+        name = p.get("name", "").strip()
+        if not name:
+            continue
+            
+        # Check if person already exists
+        existing = await neo4j.execute_query(
+            "MATCH (p:Person) WHERE toLower(p.name) = toLower($name) RETURN p.id",
+            {"name": name},
+        )
+        if existing:
+            continue
+        
+        await neo4j.execute_write(
+            "CREATE (p:Person {id: $id, name: $name, title: $title, company: $company, "
+            "role: $role, linkedin: $linkedin, twitter: $twitter, github: $github, "
+            "avatar_url: $avatar_url, avatar_color: $color, "
+            "connection_score: $score, is_self: false}) "
+            "WITH p MATCH (e:Event {url: $url}) CREATE (p)-[:ATTENDED]->(e)",
+            {
+                "id": pid,
+                "name": name,
+                "title": p.get("title", ""),
+                "company": p.get("company", ""),
+                "role": p.get("role", "participant"),
+                "linkedin": p.get("linkedin", "") or p.get("profile_url", ""),
+                "twitter": p.get("twitter", ""),
+                "github": p.get("github", ""),
+                "avatar_url": p.get("avatar_url", ""),
+                "color": colors[i % len(colors)],
+                "score": max(40, 90 - i),
+                "url": event_url,
+            },
+        )
+        
+        # Connect to "Me"
+        await neo4j.execute_write(
+            "MATCH (me:Person {id: 'me'}), (p:Person {id: $pid}) "
+            "CREATE (me)-[:CONNECTED_TO {strength: $score * 0.8, source: 'event'}]->(p)",
+            {"pid": pid, "score": max(40, 90 - i)},
+        )
+        
+        added += 1
+    
+    await neo4j.disconnect()
+    return {"added": added, "total": len(participants)}
+
+
 def _get_real_participants() -> list[dict[str, Any]]:
     """ONLY verified real people from Autonomous Agents Hackathon.
 

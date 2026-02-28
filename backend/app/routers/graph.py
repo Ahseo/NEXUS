@@ -7,6 +7,8 @@ from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 
 from app.services.graph_service import (
+    add_person_to_graph,
+    bulk_import_participants,
     enrich_all_people_sns,
     get_network_graph,
     get_ranked_people,
@@ -107,3 +109,55 @@ async def get_graph_suggestions(request: Request) -> list[dict[str, Any]]:
         return await get_ranked_people(user_email=email, limit=5)
     except Exception:
         return []
+
+
+class AddPersonRequest(BaseModel):
+    name: str
+    title: str = ""
+    company: str = ""
+    role: str = "participant"
+    linkedin: str = ""
+    twitter: str = ""
+    github: str = ""
+    avatar_url: str = ""
+    topics: list[str] = []
+    event_url: str = "https://autonomous-agents-hackathon.devpost.com"
+
+
+class BulkImportRequest(BaseModel):
+    participants: list[dict[str, Any]]
+    event_url: str = "https://autonomous-agents-hackathon.devpost.com"
+
+
+@router.post("/add-person")
+async def add_person(body: AddPersonRequest) -> dict[str, Any]:
+    """Add a single person to the graph."""
+    try:
+        return await add_person_to_graph(
+            name=body.name,
+            title=body.title,
+            company=body.company,
+            role=body.role,
+            linkedin=body.linkedin,
+            twitter=body.twitter,
+            github=body.github,
+            avatar_url=body.avatar_url,
+            topics=body.topics,
+            event_url=body.event_url,
+        )
+    except Exception as e:
+        logger.exception("Failed to add person: %s", e)
+        return {"error": str(e)}
+
+
+@router.post("/bulk-import")
+async def bulk_import(body: BulkImportRequest) -> dict[str, Any]:
+    """Bulk import participants from JSON array."""
+    try:
+        return await bulk_import_participants(
+            participants=body.participants,
+            event_url=body.event_url,
+        )
+    except Exception as e:
+        logger.exception("Failed to bulk import: %s", e)
+        return {"error": str(e)}

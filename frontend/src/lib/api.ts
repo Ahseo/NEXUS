@@ -149,6 +149,26 @@ export const graph = {
   search: (q: string) => fetchPublic(`/api/graph/search?q=${encodeURIComponent(q)}`),
   enrichSns: () => fetchPublic("/api/graph/enrich-sns", { method: "POST" }),
   suggestions: () => fetchPublic("/api/graph/suggestions"),
+  addPerson: (person: {
+    name: string;
+    title?: string;
+    company?: string;
+    role?: string;
+    linkedin?: string;
+    twitter?: string;
+    github?: string;
+    avatar_url?: string;
+    topics?: string[];
+  }) =>
+    fetchPublic("/api/graph/add-person", {
+      method: "POST",
+      body: JSON.stringify(person),
+    }),
+  bulkImport: (participants: Record<string, unknown>[], eventUrl?: string) =>
+    fetchPublic("/api/graph/bulk-import", {
+      method: "POST",
+      body: JSON.stringify({ participants, event_url: eventUrl }),
+    }),
 };
 
 // Agent Control

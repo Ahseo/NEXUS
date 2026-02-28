@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { graph } from "@/lib/api";
 import type { GraphNode, GraphEdge, NetworkGraph } from "@/lib/types";
+import { AddPersonModal, type PersonData } from "@/components/AddPersonModal";
 
 /* ─── Constants ────────────────────────────────────── */
 
@@ -41,8 +42,9 @@ function useForceLayout(
 
     const ln: LayoutNode[] = nodes.map((n, i) => ({
       ...n,
-      x: width / 2 + (Math.cos((i / nodes.length) * Math.PI * 2) * width * 0.35),
-      y: height / 2 + (Math.sin((i / nodes.length) * Math.PI * 2) * height * 0.35),
+      x: width / 2 + Math.cos((i / nodes.length) * Math.PI * 2) * width * 0.35,
+      y:
+        height / 2 + Math.sin((i / nodes.length) * Math.PI * 2) * height * 0.35,
       vx: 0,
       vy: 0,
     }));
@@ -152,7 +154,17 @@ function scoreColor(score: number): string {
 
 /* ─── SNS Button ───────────────────────────────────── */
 
-function SnsButton({ href, label, color, icon }: { href: string; label: string; color: string; icon: React.ReactNode }) {
+function SnsButton({
+  href,
+  label,
+  color,
+  icon,
+}: {
+  href: string;
+  label: string;
+  color: string;
+  icon: React.ReactNode;
+}) {
   return (
     <a
       href={href}
@@ -178,12 +190,15 @@ export default function PeoplePage() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [view, setView] = useState<"graph" | "list">("list");
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const loadData = useCallback(async (role?: string) => {
     try {
       const [network, rankedList] = await Promise.all([
         graph.network().catch(() => null),
-        graph.ranked({ role: role === "all" ? undefined : role, limit: 50 }).catch(() => []),
+        graph
+          .ranked({ role: role === "all" ? undefined : role, limit: 50 })
+          .catch(() => []),
       ]);
       setData(network as NetworkGraph | null);
       setRanked(rankedList as GraphNode[]);
@@ -203,7 +218,7 @@ export default function PeoplePage() {
     try {
       await graph.seedEvent(
         "https://autonomous-agents-hackathon.devpost.com",
-        "Autonomous Agents Hackathon"
+        "Autonomous Agents Hackathon",
       );
       await loadData();
     } catch {
@@ -219,6 +234,11 @@ export default function PeoplePage() {
     loadData(key);
   };
 
+  const handleAddPerson = async (person: PersonData) => {
+    await graph.addPerson(person);
+    await loadData();
+  };
+
   const nodes = data?.nodes ?? [];
   const edges = data?.edges ?? [];
   const graphWidth = 700;
@@ -227,12 +247,13 @@ export default function PeoplePage() {
   const nodeMap = new Map(layoutNodes.map((n) => [n.id, n]));
 
   // If ranked API returned empty, build list from graph nodes
-  const displayList = ranked.length > 0
-    ? ranked
-    : nodes
-        .filter((n) => !n.is_self)
-        .sort((a, b) => b.connection_score - a.connection_score)
-        .map((n, i) => ({ ...n, rank: i + 1 }));
+  const displayList =
+    ranked.length > 0
+      ? ranked
+      : nodes
+          .filter((n) => !n.is_self)
+          .sort((a, b) => b.connection_score - a.connection_score)
+          .map((n, i) => ({ ...n, rank: i + 1 }));
 
   const isEmpty = nodes.length === 0 && !loading;
 
@@ -243,7 +264,8 @@ export default function PeoplePage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">People</h1>
           <p className="text-[13px] text-gray-400">
-            {data?.stats.total_people ?? 0} people · {data?.stats.total_connections ?? 0} connections
+            {data?.stats.total_people ?? 0} people ·{" "}
+            {data?.stats.total_connections ?? 0} connections
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -254,7 +276,9 @@ export default function PeoplePage() {
                 key={v}
                 onClick={() => setView(v)}
                 className={`rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all ${
-                  view === v ? "bg-[#1a1a1a] text-white shadow-sm" : "text-gray-400 hover:text-gray-600"
+                  view === v
+                    ? "bg-[#1a1a1a] text-white shadow-sm"
+                    : "text-gray-400 hover:text-gray-600"
                 }`}
               >
                 {v === "graph" ? "Graph" : "List"}
@@ -262,24 +286,20 @@ export default function PeoplePage() {
             ))}
           </div>
           <button
-            onClick={async () => {
-              setEnriching(true);
-              try { await graph.enrichSns(); await loadData(); } catch {} finally { setEnriching(false); }
-            }}
-            disabled={enriching || isEmpty}
-            className="rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-[12px] font-medium text-gray-600 shadow-sm transition-all hover:bg-gray-50 disabled:opacity-50"
+            onClick={() => setShowAddModal(true)}
+            className="rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-[12px] font-medium text-gray-600 shadow-sm transition-all hover:bg-gray-50"
           >
-            {enriching ? "Finding SNS..." : "Find SNS (Reka)"}
-          </button>
-          <button
-            onClick={handleSeed}
-            disabled={seeding}
-            className="rounded-xl bg-[#1a1a1a] px-4 py-2 text-[12px] font-medium text-white shadow-sm transition-all hover:bg-gray-800 disabled:opacity-50"
-          >
-            {seeding ? "Loading..." : "Seed Hackathon"}
+            + Add Person
           </button>
         </div>
       </div>
+
+      {/* Add Person Modal */}
+      <AddPersonModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdd={handleAddPerson}
+      />
 
       {/* Role Filters */}
       <div className="mb-5 flex gap-1.5 overflow-x-auto">
@@ -319,16 +339,28 @@ export default function PeoplePage() {
                 onSelect={setSelectedNode}
               />
             ) : (
-              <ListView ranked={displayList} onSelect={setSelectedNode} selected={selectedNode} />
+              <ListView
+                ranked={displayList}
+                onSelect={setSelectedNode}
+                selected={selectedNode}
+              />
             )}
           </div>
 
           {/* Right: Detail panel */}
           <div className="w-[280px] shrink-0">
             {selectedNode ? (
-              <PersonDetail node={selectedNode} edges={edges} nodeMap={nodeMap} onClose={() => setSelectedNode(null)} />
+              <PersonDetail
+                node={selectedNode}
+                edges={edges}
+                nodeMap={nodeMap}
+                onClose={() => setSelectedNode(null)}
+              />
             ) : (
-              <RankedSidebar ranked={displayList.slice(0, 8)} onSelect={setSelectedNode} />
+              <RankedSidebar
+                ranked={displayList.slice(0, 8)}
+                onSelect={setSelectedNode}
+              />
             )}
           </div>
         </div>
@@ -340,7 +372,13 @@ export default function PeoplePage() {
 /* ─── Graph View ───────────────────────────────────── */
 
 function GraphView({
-  nodes, edges, nodeMap, width, height, selected, onSelect,
+  nodes,
+  edges,
+  nodeMap,
+  width,
+  height,
+  selected,
+  onSelect,
 }: {
   nodes: LayoutNode[];
   edges: GraphEdge[];
@@ -352,20 +390,30 @@ function GraphView({
 }) {
   return (
     <div className="rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-      <svg width="100%" viewBox={`0 0 ${width} ${height}`} className="cursor-pointer">
+      <svg
+        width="100%"
+        viewBox={`0 0 ${width} ${height}`}
+        className="cursor-pointer"
+      >
         {/* Edges */}
         {edges.map((e, i) => {
           const s = nodeMap.get(e.source);
           const t = nodeMap.get(e.target);
           if (!s || !t) return null;
           const style = edgeStyle(e.strength);
-          const isHighlighted = selected && (selected.id === e.source || selected.id === e.target);
+          const isHighlighted =
+            selected && (selected.id === e.source || selected.id === e.target);
           return (
             <line
               key={i}
-              x1={s.x} y1={s.y} x2={t.x} y2={t.y}
+              x1={s.x}
+              y1={s.y}
+              x2={t.x}
+              y2={t.y}
               stroke={style.stroke}
-              strokeWidth={isHighlighted ? style.strokeWidth + 1.5 : style.strokeWidth}
+              strokeWidth={
+                isHighlighted ? style.strokeWidth + 1.5 : style.strokeWidth
+              }
               opacity={selected ? (isHighlighted ? 0.8 : 0.08) : style.opacity}
               strokeLinecap="round"
             />
@@ -376,14 +424,20 @@ function GraphView({
           const isSelf = n.is_self;
           const r = isSelf ? 26 : 10 + (n.connection_score / 100) * 12;
           const isSelected = selected?.id === n.id;
-          const isConnected = selected && edges.some(
-            (e) => (e.source === selected.id && e.target === n.id) || (e.target === selected.id && e.source === n.id)
-          );
+          const isConnected =
+            selected &&
+            edges.some(
+              (e) =>
+                (e.source === selected.id && e.target === n.id) ||
+                (e.target === selected.id && e.source === n.id),
+            );
           const dimmed = selected && !isSelected && !isConnected && !isSelf;
           return (
             <g
               key={n.id}
-              onClick={() => isSelf ? undefined : onSelect(isSelected ? null : n)}
+              onClick={() =>
+                isSelf ? undefined : onSelect(isSelected ? null : n)
+              }
               className="transition-all duration-200"
               opacity={dimmed ? 0.2 : 1}
               style={{ cursor: isSelf ? "default" : "pointer" }}
@@ -391,19 +445,49 @@ function GraphView({
               {/* "Me" outer ring */}
               {isSelf && (
                 <>
-                  <circle cx={n.x} cy={n.y} r={r + 10} fill="#f97316" opacity={0.08} />
-                  <circle cx={n.x} cy={n.y} r={r + 5} fill="none" stroke="#f97316" strokeWidth="1.5" strokeDasharray="4 3" opacity={0.4}>
-                    <animateTransform attributeName="transform" type="rotate" from={`0 ${n.x} ${n.y}`} to={`360 ${n.x} ${n.y}`} dur="20s" repeatCount="indefinite" />
+                  <circle
+                    cx={n.x}
+                    cy={n.y}
+                    r={r + 10}
+                    fill="#f97316"
+                    opacity={0.08}
+                  />
+                  <circle
+                    cx={n.x}
+                    cy={n.y}
+                    r={r + 5}
+                    fill="none"
+                    stroke="#f97316"
+                    strokeWidth="1.5"
+                    strokeDasharray="4 3"
+                    opacity={0.4}
+                  >
+                    <animateTransform
+                      attributeName="transform"
+                      type="rotate"
+                      from={`0 ${n.x} ${n.y}`}
+                      to={`360 ${n.x} ${n.y}`}
+                      dur="20s"
+                      repeatCount="indefinite"
+                    />
                   </circle>
                 </>
               )}
               {/* Selection glow */}
               {isSelected && !isSelf && (
-                <circle cx={n.x} cy={n.y} r={r + 6} fill={n.avatar_color} opacity={0.15} />
+                <circle
+                  cx={n.x}
+                  cy={n.y}
+                  r={r + 6}
+                  fill={n.avatar_color}
+                  opacity={0.15}
+                />
               )}
               {/* Circle */}
               <circle
-                cx={n.x} cy={n.y} r={r}
+                cx={n.x}
+                cy={n.y}
+                r={r}
                 fill={isSelf ? "#f97316" : n.avatar_color}
                 stroke={isSelected ? "#1a1a1a" : isSelf ? "#f97316" : "white"}
                 strokeWidth={isSelf ? 3 : isSelected ? 2.5 : 2}
@@ -411,17 +495,31 @@ function GraphView({
               />
               {/* Initials / Me label */}
               <text
-                x={n.x} y={n.y + 1}
-                textAnchor="middle" dominantBaseline="middle"
-                fill="white" fontSize={isSelf ? "11" : "9"} fontWeight="700"
+                x={n.x}
+                y={n.y + 1}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill="white"
+                fontSize={isSelf ? "11" : "9"}
+                fontWeight="700"
                 className="pointer-events-none select-none"
               >
-                {isSelf ? "ME" : n.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}
+                {isSelf
+                  ? "ME"
+                  : n.name
+                      .split(" ")
+                      .map((w) => w[0])
+                      .join("")
+                      .slice(0, 2)}
               </text>
               {/* Name label */}
               <text
-                x={n.x} y={n.y + r + 12}
-                textAnchor="middle" fill={isSelf ? "#f97316" : "#374151"} fontSize={isSelf ? "10" : "8"} fontWeight={isSelf ? "800" : "600"}
+                x={n.x}
+                y={n.y + r + 12}
+                textAnchor="middle"
+                fill={isSelf ? "#f97316" : "#374151"}
+                fontSize={isSelf ? "10" : "8"}
+                fontWeight={isSelf ? "800" : "600"}
                 className="pointer-events-none select-none"
               >
                 {isSelf ? "Me" : n.name.split(" ")[0]}
@@ -442,7 +540,8 @@ function GraphView({
           <span className="h-[1px] w-4 rounded bg-[#d1d5db]" /> Weak
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-full bg-gray-300" /> Node = person
+          <span className="inline-block h-3 w-3 rounded-full bg-gray-300" />{" "}
+          Node = person
         </span>
       </div>
     </div>
@@ -452,7 +551,9 @@ function GraphView({
 /* ─── List View ────────────────────────────────────── */
 
 function ListView({
-  ranked, onSelect, selected,
+  ranked,
+  onSelect,
+  selected,
 }: {
   ranked: GraphNode[];
   onSelect: (n: GraphNode) => void;
@@ -477,21 +578,36 @@ function ListView({
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-bold text-white"
             style={{ background: p.avatar_color }}
           >
-            {p.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}
+            {p.name
+              .split(" ")
+              .map((w) => w[0])
+              .join("")
+              .slice(0, 2)}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold text-gray-900 truncate">{p.name}</p>
+            <p className="text-[13px] font-semibold text-gray-900 truncate">
+              {p.name}
+            </p>
             <p className="text-[11px] text-gray-400 truncate">
-              {p.title}{p.title && p.company ? " at " : ""}{p.company}
+              {p.title}
+              {p.title && p.company ? " at " : ""}
+              {p.company}
             </p>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${scoreColor(p.connection_score)}`}>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${scoreColor(p.connection_score)}`}
+            >
               {p.connection_score}
             </span>
             <div className="flex gap-1">
               {p.topics?.slice(0, 2).map((t) => (
-                <span key={t} className="rounded-full bg-[#F7F7F4] px-1.5 py-0.5 text-[8px] text-gray-400">{t}</span>
+                <span
+                  key={t}
+                  className="rounded-full bg-[#F7F7F4] px-1.5 py-0.5 text-[8px] text-gray-400"
+                >
+                  {t}
+                </span>
               ))}
             </div>
           </div>
@@ -504,7 +620,10 @@ function ListView({
 /* ─── Person Detail Panel ──────────────────────────── */
 
 function PersonDetail({
-  node, edges, nodeMap, onClose,
+  node,
+  edges,
+  nodeMap,
+  onClose,
 }: {
   node: GraphNode;
   edges: GraphEdge[];
@@ -516,7 +635,12 @@ function PersonDetail({
     .map((e) => {
       const otherId = e.source === node.id ? e.target : e.source;
       const other = nodeMap.get(otherId);
-      return { ...e, otherId, otherName: other?.name ?? "Unknown", otherColor: other?.avatar_color ?? "#ccc" };
+      return {
+        ...e,
+        otherId,
+        otherName: other?.name ?? "Unknown",
+        otherColor: other?.avatar_color ?? "#ccc",
+      };
     })
     .sort((a, b) => b.strength - a.strength);
 
@@ -527,16 +651,29 @@ function PersonDetail({
           className="flex h-12 w-12 items-center justify-center rounded-2xl text-lg font-bold text-white"
           style={{ background: node.avatar_color }}
         >
-          {node.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}
+          {node.name
+            .split(" ")
+            .map((w) => w[0])
+            .join("")
+            .slice(0, 2)}
         </div>
-        <button onClick={onClose} className="text-gray-300 hover:text-gray-500 text-lg leading-none">&times;</button>
+        <button
+          onClick={onClose}
+          className="text-gray-300 hover:text-gray-500 text-lg leading-none"
+        >
+          &times;
+        </button>
       </div>
       <h3 className="text-[15px] font-bold text-gray-900">{node.name}</h3>
       <p className="text-[12px] text-gray-400">
-        {node.title}{node.title && node.company ? " at " : ""}{node.company}
+        {node.title}
+        {node.title && node.company ? " at " : ""}
+        {node.company}
       </p>
       <div className="mt-2">
-        <span className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums ${scoreColor(node.connection_score)}`}>
+        <span
+          className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums ${scoreColor(node.connection_score)}`}
+        >
           Score: {node.connection_score}
         </span>
       </div>
@@ -544,10 +681,17 @@ function PersonDetail({
       {/* Topics */}
       {node.topics && node.topics.length > 0 && (
         <div className="mt-3">
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Topics</p>
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+            Topics
+          </p>
           <div className="flex flex-wrap gap-1">
             {node.topics.map((t) => (
-              <span key={t} className="rounded-full bg-[#F7F7F4] px-2 py-0.5 text-[10px] font-medium text-gray-500">{t}</span>
+              <span
+                key={t}
+                className="rounded-full bg-[#F7F7F4] px-2 py-0.5 text-[10px] font-medium text-gray-500"
+              >
+                {t}
+              </span>
             ))}
           </div>
         </div>
@@ -556,38 +700,134 @@ function PersonDetail({
       {/* SNS Links */}
       <div className="mt-3 flex flex-wrap gap-1.5">
         {node.linkedin && (
-          <SnsButton href={node.linkedin} label="LinkedIn" color="#0a66c2"
-            icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 2h-17A1.5 1.5 0 002 3.5v17A1.5 1.5 0 003.5 22h17a1.5 1.5 0 001.5-1.5v-17A1.5 1.5 0 0020.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 118.3 6.5a1.78 1.78 0 01-1.8 1.75zM19 19h-3v-4.74c0-1.42-.6-1.93-1.38-1.93A1.74 1.74 0 0013 14.19V19h-3v-9h2.9v1.3a3.11 3.11 0 012.7-1.4c1.55 0 3.36.86 3.36 3.66z"/></svg>}
+          <SnsButton
+            href={node.linkedin}
+            label="LinkedIn"
+            color="#0a66c2"
+            icon={
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M20.5 2h-17A1.5 1.5 0 002 3.5v17A1.5 1.5 0 003.5 22h17a1.5 1.5 0 001.5-1.5v-17A1.5 1.5 0 0020.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 118.3 6.5a1.78 1.78 0 01-1.8 1.75zM19 19h-3v-4.74c0-1.42-.6-1.93-1.38-1.93A1.74 1.74 0 0013 14.19V19h-3v-9h2.9v1.3a3.11 3.11 0 012.7-1.4c1.55 0 3.36.86 3.36 3.66z" />
+              </svg>
+            }
           />
         )}
         {node.twitter && (
-          <SnsButton href={`https://x.com/${node.twitter.replace("@","")}`} label="X" color="#000"
-            icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>}
+          <SnsButton
+            href={`https://x.com/${node.twitter.replace("@", "")}`}
+            label="X"
+            color="#000"
+            icon={
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+              </svg>
+            }
           />
         )}
         {node.facebook && (
-          <SnsButton href={`https://facebook.com/${node.facebook}`} label="Facebook" color="#1877f2"
-            icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>}
+          <SnsButton
+            href={`https://facebook.com/${node.facebook}`}
+            label="Facebook"
+            color="#1877f2"
+            icon={
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              </svg>
+            }
           />
         )}
         {node.instagram && (
-          <SnsButton href={`https://instagram.com/${node.instagram}`} label="Insta" color="#e4405f"
-            icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>}
+          <SnsButton
+            href={`https://instagram.com/${node.instagram}`}
+            label="Insta"
+            color="#e4405f"
+            icon={
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+              </svg>
+            }
           />
         )}
         {node.github && (
-          <SnsButton href={`https://github.com/${node.github}`} label="GitHub" color="#24292f"
-            icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>}
+          <SnsButton
+            href={`https://github.com/${node.github}`}
+            label="GitHub"
+            color="#24292f"
+            icon={
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+              </svg>
+            }
           />
         )}
         {node.website && (
-          <SnsButton href={node.website.startsWith("http") ? node.website : `https://${node.website}`} label="Web" color="#059669"
-            icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>}
+          <SnsButton
+            href={
+              node.website.startsWith("http")
+                ? node.website
+                : `https://${node.website}`
+            }
+            label="Web"
+            color="#059669"
+            icon={
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
+            }
           />
         )}
         {node.email && (
-          <SnsButton href={`mailto:${node.email}`} label="Email" color="#6b7280"
-            icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>}
+          <SnsButton
+            href={`mailto:${node.email}`}
+            label="Email"
+            color="#6b7280"
+            icon={
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+              </svg>
+            }
           />
         )}
       </div>
@@ -605,18 +845,29 @@ function PersonDetail({
                   className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[7px] font-bold text-white"
                   style={{ background: c.otherColor }}
                 >
-                  {c.otherName.split(" ").map((w: string) => w[0]).join("").slice(0, 2)}
+                  {c.otherName
+                    .split(" ")
+                    .map((w: string) => w[0])
+                    .join("")
+                    .slice(0, 2)}
                 </div>
-                <span className="flex-1 truncate text-[11px] text-gray-600">{c.otherName}</span>
+                <span className="flex-1 truncate text-[11px] text-gray-600">
+                  {c.otherName}
+                </span>
                 <div
                   className="h-1 rounded-full"
                   style={{
                     width: `${Math.max(16, c.strength)}px`,
-                    background: c.strength >= 60 ? "#f97316" : c.strength >= 40 ? "#6366f1" : "#d1d5db",
+                    background:
+                      c.strength >= 60
+                        ? "#f97316"
+                        : c.strength >= 40
+                          ? "#6366f1"
+                          : "#d1d5db",
                   }}
                 />
-        </div>
-          ))}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -627,7 +878,8 @@ function PersonDetail({
 /* ─── Ranked Sidebar ───────────────────────────────── */
 
 function RankedSidebar({
-  ranked, onSelect,
+  ranked,
+  onSelect,
 }: {
   ranked: GraphNode[];
   onSelect: (n: GraphNode) => void;
@@ -651,13 +903,21 @@ function RankedSidebar({
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
               style={{ background: p.avatar_color }}
             >
-              {p.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}
+              {p.name
+                .split(" ")
+                .map((w) => w[0])
+                .join("")
+                .slice(0, 2)}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-semibold text-gray-800">{p.name}</p>
+              <p className="truncate text-[12px] font-semibold text-gray-800">
+                {p.name}
+              </p>
               <p className="truncate text-[10px] text-gray-400">{p.company}</p>
             </div>
-            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold tabular-nums ${scoreColor(p.connection_score)}`}>
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold tabular-nums ${scoreColor(p.connection_score)}`}
+            >
               {p.connection_score}
             </span>
           </button>
@@ -669,7 +929,13 @@ function RankedSidebar({
 
 /* ─── Empty State ──────────────────────────────────── */
 
-function EmptyState({ onSeed, seeding }: { onSeed: () => void; seeding: boolean }) {
+function EmptyState({
+  onSeed,
+  seeding,
+}: {
+  onSeed: () => void;
+  seeding: boolean;
+}) {
   return (
     <div className="flex h-[500px] flex-col items-center justify-center text-center animate-fade-in">
       <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F7F7F4] text-2xl">
