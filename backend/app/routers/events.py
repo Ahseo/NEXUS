@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 
-from app.core.deps import get_current_user
+from app.core.deps import DbSession, get_current_user
+from app.models.agent_event import AgentEventDB
 from app.models.event import EventResponse, EventStatus
+from app.services.graph_service import get_event_participants
 from app.services.linkedin_analyzer import analyze_linkedin_profile
 from app.services.message_generator import MessageGenerator
 
@@ -141,6 +144,50 @@ async def draft_connection_messages(event_id: str, body: dict) -> list[dict]:
         msg["linkedin_url"] = person.get("linkedin_url", "")
         messages.append(msg)
     return messages
+
+
+@router.get("/{event_id}/participants")
+async def get_participants(event_id: str, db: DbSession) -> list[dict]:
+    """Get event participants from Neo4j. Looks up event URL from agent events or in-memory store."""
+    # Try to find the event URL
+    event_url = ""
+
+    # Check in-memory store first
+    if event_id in _events and _events[event_id].get("url"):
+        event_url = _events[event_id]["url"]
+
+    # Fall back to AgentEventDB — find agent event with matching ID and extract URL
+    if not event_url:
+        stmt = select(AgentEventDB).where(AgentEventDB.id == event_id)
+        result = await db.execute(stmt)
+        row = result.scalar_one_or_none()
+        if row and row.data:
+            ev = row.data.get("event", {})
+            event_url = ev.get("url", "")
+
+    # Also try matching by event URL pattern in all applied events
+    if not event_url:
+        stmt = (
+            select(AgentEventDB)
+            .where(AgentEventDB.event_type == "event:applied")
+            .order_by(AgentEventDB.created_at.desc())
+            .limit(10)
+        )
+        result = await db.execute(stmt)
+        for row in result.scalars():
+            if row.data:
+                ev = row.data.get("event", {})
+                if ev.get("url"):
+                    event_url = ev["url"]
+                    break
+
+    if not event_url:
+        return []
+
+    try:
+        return await get_event_participants(event_url)
+    except Exception:
+        return []
 
 
 @router.post("/{event_id}/rate", status_code=200)

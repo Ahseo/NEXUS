@@ -72,6 +72,10 @@ export const events = {
       `/api/events/${id}/draft-messages`,
       { method: "POST", body: JSON.stringify({ user_profile: userProfile }) },
     ),
+  participants: (id: string) =>
+    fetchApi<{ id: string; name: string; title: string; company: string; role: string; linkedin: string; avatar_color: string; connection_score: number; topics: string[] }[]>(
+      `/api/events/${id}/participants`,
+    ),
 };
 
 // People Endpoints
@@ -169,6 +173,7 @@ export const graph = {
       method: "POST",
       body: JSON.stringify({ participants, event_url: eventUrl }),
     }),
+  seedDemo: () => fetchPublic("/api/graph/seed-demo", { method: "POST" }),
 };
 
 // Agent Control

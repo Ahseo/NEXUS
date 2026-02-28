@@ -276,6 +276,38 @@ async def get_ranked_people(
     ]
 
 
+async def get_event_participants(event_url: str) -> list[dict[str, Any]]:
+    """Return all people who attended a specific event (excludes self)."""
+    neo4j = await get_neo4j()
+
+    results = await neo4j.execute_query(
+        "MATCH (p:Person)-[:ATTENDED]->(e:Event {url: $url}) "
+        "WHERE NOT p.is_self = true "
+        "OPTIONAL MATCH (p)-[:EXPERT_IN]->(t:Topic) "
+        "RETURN p.id AS id, p.name AS name, p.title AS title, "
+        "p.company AS company, p.role AS role, p.linkedin AS linkedin, "
+        "p.avatar_color AS avatar_color, "
+        "COALESCE(p.connection_score, 0) AS connection_score, "
+        "COLLECT(DISTINCT t.name) AS topics "
+        "ORDER BY connection_score DESC",
+        {"url": event_url},
+    )
+
+    await neo4j.disconnect()
+
+    return [
+        {
+            "id": r["id"], "name": r["name"], "title": r.get("title", ""),
+            "company": r.get("company", ""), "role": r.get("role", ""),
+            "linkedin": r.get("linkedin") or "",
+            "avatar_color": r.get("avatar_color", "#6366f1"),
+            "connection_score": r.get("connection_score", 0),
+            "topics": r.get("topics", []),
+        }
+        for r in results
+    ]
+
+
 async def search_people_tavily(query: str) -> list[dict[str, Any]]:
     if not settings.tavily_api_key:
         return []

@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import logging
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 
+from app.core.database import async_session_factory
+from app.models.agent_event import AgentEventDB
 from app.services.graph_service import (
     add_person_to_graph,
     bulk_import_participants,
     enrich_all_people_sns,
+    get_event_participants,
     get_network_graph,
     get_ranked_people,
     search_people_tavily,
@@ -161,3 +166,100 @@ async def bulk_import(body: BulkImportRequest) -> dict[str, Any]:
     except Exception as e:
         logger.exception("Failed to bulk import: %s", e)
         return {"error": str(e)}
+
+
+@router.post("/seed-demo")
+async def seed_demo(request: Request) -> dict[str, Any]:
+    """Seed demo data: AgentEvent rows in Postgres + Neo4j graph."""
+    email = _get_email(request)
+
+    HACKATHON_URL = "https://autonomous-agents-hackathon.devpost.com"
+    HACKATHON_TITLE = "Autonomous Agents Hackathon"
+
+    # 1. Seed Neo4j graph (event + participants + relationships)
+    try:
+        graph_result = await seed_hackathon_event(
+            event_url=HACKATHON_URL,
+            event_title=HACKATHON_TITLE,
+            user_email=email,
+        )
+    except Exception as e:
+        logger.exception("Neo4j seed failed: %s", e)
+        graph_result = {"error": str(e)}
+
+    # 2. Seed AgentEventDB rows so the event shows up in Events page
+    now = datetime.now(timezone.utc)
+    event_data = {
+        "event": {
+            "title": HACKATHON_TITLE,
+            "url": HACKATHON_URL,
+            "date": "2026-02-27",
+            "start_date": "2026-02-27T09:00:00",
+            "location": "AWS Builder Loft, 525 Market St, SF",
+            "description": "Build autonomous agents in 24 hours. $10K+ in prizes. Speakers from Anthropic, Render, Yutori, Numeric.",
+            "source": "devpost",
+            "price": 0,
+            "topics": ["AI Agents", "LLM", "Autonomous Systems", "Hackathon"],
+            "speakers": ["Carter Huffman", "Dhruv Batra", "Ojus Save", "Andrew Bihl"],
+        },
+        "score": 94,
+        "why": "Directly aligned with your interests in AI agents and autonomous systems. High-value networking with founders, engineers, and investors in the AI space.",
+    }
+
+    agent_events = [
+        {
+            "event_type": "event:discovered",
+            "message": f"Found event: {HACKATHON_TITLE}",
+            "detail": HACKATHON_URL,
+            "data": {**event_data, "count": 1},
+            "created_at": now - timedelta(hours=6),
+        },
+        {
+            "event_type": "event:analyzed",
+            "message": f"Recommended: {HACKATHON_TITLE}",
+            "detail": f"Score: {event_data['score']}",
+            "data": event_data,
+            "created_at": now - timedelta(hours=5),
+        },
+        {
+            "event_type": "event:applied",
+            "message": f"Applied to: {HACKATHON_TITLE}",
+            "detail": HACKATHON_URL,
+            "data": {**event_data, "status": "applied", "application_status": "confirmed"},
+            "created_at": now - timedelta(hours=4),
+        },
+    ]
+
+    inserted = 0
+    try:
+        async with async_session_factory() as session:
+            for ae in agent_events:
+                session.add(AgentEventDB(
+                    id=str(uuid.uuid4()),
+                    event_type=ae["event_type"],
+                    source="nexus",
+                    message=ae["message"],
+                    detail=ae["detail"],
+                    data=ae["data"],
+                    created_at=ae["created_at"],
+                ))
+            await session.commit()
+            inserted = len(agent_events)
+    except Exception as e:
+        logger.exception("Failed to seed agent events: %s", e)
+
+    return {
+        "status": "ok",
+        "agent_events_inserted": inserted,
+        "graph": graph_result,
+    }
+
+
+@router.get("/event-participants")
+async def event_participants(url: str = Query(...)) -> list[dict[str, Any]]:
+    """Get all participants for an event by its URL from Neo4j."""
+    try:
+        return await get_event_participants(url)
+    except Exception as e:
+        logger.error("Failed to get event participants: %s", e)
+        return []

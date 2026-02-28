@@ -336,22 +336,14 @@ export default function EventsPage() {
                   </span>
                 </button>
 
-                {/* Attend buttons for past applied events */}
-                {ev.status === "applied" && isPastEvent(ev) && (
-                  <div className="flex shrink-0 gap-2">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleAttend(ev); }}
-                      className="rounded-xl bg-green-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-all hover:bg-green-700 active:scale-[0.97]"
-                    >
-                      Attended
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleSkipAttend(ev); }}
-                      className="rounded-xl border border-black/[0.08] px-3 py-1.5 text-[11px] font-semibold text-gray-400 transition-all hover:bg-gray-50 active:scale-[0.97]"
-                    >
-                      Didn&apos;t Go
-                    </button>
-                  </div>
+                {/* Mark as Attended button for applied events */}
+                {ev.status === "applied" && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleAttend(ev); }}
+                    className="shrink-0 rounded-xl bg-green-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-all hover:bg-green-700 active:scale-[0.97]"
+                  >
+                    Mark as Attended
+                  </button>
                 )}
               </div>
             ))}
@@ -364,7 +356,7 @@ export default function EventsPage() {
         <EventModal
           event={selected}
           onClose={() => setSelected(null)}
-          onAttend={selected.status === "applied" && isPastEvent(selected) ? () => { setSelected(null); handleAttend(selected); } : undefined}
+          onAttend={selected.status === "applied" ? () => { setSelected(null); handleAttend(selected); } : undefined}
         />
       )}
 
@@ -389,7 +381,19 @@ export default function EventsPage() {
   );
 }
 
-/* ── Post-Attend Modal ──────────────────────────────────────────────────────── */
+/* ── Post-Attend Modal (Event Participants Multi-Select) ───────────────────── */
+
+interface Participant {
+  id: string;
+  name: string;
+  title: string;
+  company: string;
+  role: string;
+  linkedin: string;
+  avatar_color: string;
+  connection_score: number;
+  topics: string[];
+}
 
 function AttendModal({
   event,
@@ -400,30 +404,58 @@ function AttendModal({
   onClose: () => void;
   onSubmit: (connections: Connection[]) => Promise<void>;
 }) {
-  const [connections, setConnections] = useState<Connection[]>([
-    { name: "", linkedin_url: "", notes: "" },
-  ]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+  const [manualRows, setManualRows] = useState<Connection[]>([{ name: "", linkedin_url: "", notes: "" }]);
 
-  const addRow = () => {
-    setConnections([...connections, { name: "", linkedin_url: "", notes: "" }]);
+  // Fetch participants from Neo4j on mount
+  useEffect(() => {
+    eventsApi.participants(event.id).then((p) => {
+      setParticipants(p);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [event.id]);
+
+  const toggleSelect = (i: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
   };
 
-  const updateRow = (i: number, field: keyof Connection, value: string) => {
-    setConnections(connections.map((c, idx) => (idx === i ? { ...c, [field]: value } : c)));
+  const selectAll = () => {
+    if (selected.size === participants.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(participants.map((_, i) => i)));
+    }
   };
 
-  const removeRow = (i: number) => {
-    if (connections.length <= 1) return;
-    setConnections(connections.filter((_, idx) => idx !== i));
+  const addManualRow = () => {
+    setManualRows([...manualRows, { name: "", linkedin_url: "", notes: "" }]);
+  };
+
+  const updateManualRow = (i: number, field: keyof Connection, value: string) => {
+    setManualRows(manualRows.map((c, idx) => (idx === i ? { ...c, [field]: value } : c)));
   };
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    const valid = connections.filter((c) => c.name.trim() || c.linkedin_url.trim());
-    await onSubmit(valid);
+    const fromParticipants: Connection[] = Array.from(selected).map((i) => ({
+      name: participants[i].name,
+      linkedin_url: participants[i].linkedin || "",
+      notes: `${participants[i].title}${participants[i].company ? ` at ${participants[i].company}` : ""}`,
+    }));
+    const fromManual = manualRows.filter((c) => c.name.trim() || c.linkedin_url.trim());
+    await onSubmit([...fromParticipants, ...fromManual]);
     setSubmitting(false);
   };
+
+  const totalSelected = selected.size + manualRows.filter((r) => r.name.trim()).length;
 
   return (
     <div
@@ -452,81 +484,166 @@ function AttendModal({
         </div>
         <h2 className="mb-1 text-lg font-bold text-gray-900">{event.title}</h2>
         <p className="mb-5 text-[13px] text-gray-400">
-          Who did you meet and connect with?
+          Select the people you met at this event
         </p>
 
-        {/* Connection rows */}
-        <div className="space-y-3">
-          {connections.map((conn, i) => (
-            <div key={i} className="rounded-xl border border-black/[0.06] bg-[#F7F7F4] p-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold text-gray-400 w-5">{i + 1}</span>
-                <input
-                  type="text"
-                  placeholder="Name"
-                  value={conn.name}
-                  onChange={(e) => updateRow(i, "name", e.target.value)}
-                  className="flex-1 rounded-lg border border-black/[0.06] bg-white px-3 py-2 text-[13px] text-gray-900 placeholder:text-gray-300 outline-none focus:ring-1 focus:ring-[#1a1a1a]"
-                />
-                {connections.length > 1 && (
-                  <button
-                    onClick={() => removeRow(i)}
-                    className="text-gray-300 hover:text-red-400 transition-colors"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-              <div className="ml-7 flex gap-2">
-                <input
-                  type="url"
-                  placeholder="LinkedIn URL"
-                  value={conn.linkedin_url}
-                  onChange={(e) => updateRow(i, "linkedin_url", e.target.value)}
-                  className="flex-1 rounded-lg border border-black/[0.06] bg-white px-3 py-2 text-[13px] text-gray-900 placeholder:text-gray-300 outline-none focus:ring-1 focus:ring-[#1a1a1a]"
-                />
-              </div>
-              <div className="ml-7">
-                <input
-                  type="text"
-                  placeholder="Notes (what you talked about, etc.)"
-                  value={conn.notes}
-                  onChange={(e) => updateRow(i, "notes", e.target.value)}
-                  className="w-full rounded-lg border border-black/[0.06] bg-white px-3 py-2 text-[13px] text-gray-900 placeholder:text-gray-300 outline-none focus:ring-1 focus:ring-[#1a1a1a]"
-                />
-              </div>
+        {/* Participant list */}
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a1a] border-t-transparent" />
+            <span className="ml-2 text-[12px] text-gray-400">Loading participants...</span>
+          </div>
+        ) : participants.length === 0 ? (
+          <div className="rounded-xl bg-[#F7F7F4] px-4 py-5 text-center mb-4">
+            <p className="text-[13px] text-gray-500">No participants found for this event</p>
+            <p className="mt-1 text-[11px] text-gray-400">Add people manually below</p>
+          </div>
+        ) : (
+          <div className="mb-4">
+            {/* Select all toggle */}
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[12px] font-medium text-gray-500">
+                {participants.length} participant{participants.length !== 1 ? "s" : ""}
+              </span>
+              <button
+                onClick={selectAll}
+                className="text-[11px] font-medium text-[#1a1a1a] transition-colors hover:text-gray-600"
+              >
+                {selected.size === participants.length ? "Deselect all" : "Select all"}
+              </button>
             </div>
-          ))}
+
+            {/* Scrollable list */}
+            <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
+              {participants.map((p, i) => (
+                <button
+                  key={p.id}
+                  onClick={() => toggleSelect(i)}
+                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+                    selected.has(i)
+                      ? "border-[#1a1a1a]/20 bg-[#1a1a1a]/[0.03] shadow-sm"
+                      : "border-black/[0.06] bg-white hover:bg-gray-50"
+                  }`}
+                >
+                  {/* Checkbox */}
+                  <div
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-all ${
+                      selected.has(i) ? "border-[#1a1a1a] bg-[#1a1a1a]" : "border-gray-300"
+                    }`}
+                  >
+                    {selected.has(i) && (
+                      <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+
+                  {/* Avatar */}
+                  <div
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-bold text-white"
+                    style={{ backgroundColor: p.avatar_color || "#6366f1" }}
+                  >
+                    {p.name.charAt(0).toUpperCase()}
+                  </div>
+
+                  {/* Info */}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold text-gray-900">{p.name}</p>
+                    <p className="truncate text-[11px] text-gray-400">
+                      {p.title}{p.company ? ` at ${p.company}` : ""}
+                    </p>
+                    {p.topics.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {p.topics.slice(0, 3).map((t, j) => (
+                          <span key={j} className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-500">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Score badge */}
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      p.connection_score >= 80
+                        ? "bg-orange-100 text-orange-600"
+                        : p.connection_score >= 50
+                          ? "bg-gray-100 text-gray-600"
+                          : "bg-gray-50 text-gray-400"
+                    }`}
+                  >
+                    {p.connection_score}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Manual add section */}
+        <div className="mb-4">
+          <button
+            onClick={() => setShowManual(!showManual)}
+            className="flex items-center gap-1.5 text-[12px] font-medium text-gray-400 transition-colors hover:text-gray-600"
+          >
+            <svg
+              className={`h-3.5 w-3.5 transition-transform ${showManual ? "rotate-90" : ""}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+            Add someone not in the list
+          </button>
+
+          {showManual && (
+            <div className="mt-3 space-y-2 animate-fade-in">
+              {manualRows.map((row, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Name"
+                    value={row.name}
+                    onChange={(e) => updateManualRow(i, "name", e.target.value)}
+                    className="flex-1 rounded-lg border border-black/[0.06] bg-[#F7F7F4] px-3 py-2 text-[13px] text-gray-900 placeholder:text-gray-300 outline-none focus:ring-1 focus:ring-[#1a1a1a]"
+                  />
+                  <input
+                    type="url"
+                    placeholder="LinkedIn URL"
+                    value={row.linkedin_url}
+                    onChange={(e) => updateManualRow(i, "linkedin_url", e.target.value)}
+                    className="flex-1 rounded-lg border border-black/[0.06] bg-[#F7F7F4] px-3 py-2 text-[13px] text-gray-900 placeholder:text-gray-300 outline-none focus:ring-1 focus:ring-[#1a1a1a]"
+                  />
+                </div>
+              ))}
+              <button
+                onClick={addManualRow}
+                className="flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Add row
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Add another */}
-        <button
-          onClick={addRow}
-          className="mt-3 flex items-center gap-1.5 text-[12px] font-medium text-gray-400 transition-colors hover:text-gray-600"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Add another person
-        </button>
-
         {/* Actions */}
-        <div className="mt-6 flex gap-2">
+        <div className="flex gap-2">
           <button
             onClick={handleSubmit}
-            disabled={submitting}
-            className="rounded-xl bg-[#1a1a1a] px-5 py-2.5 text-[13px] font-medium text-white transition-all duration-200 hover:bg-[#333] active:scale-[0.97] disabled:opacity-50"
+            disabled={submitting || totalSelected === 0}
+            className="rounded-xl bg-[#1a1a1a] px-5 py-2.5 text-[13px] font-medium text-white transition-all duration-200 hover:bg-[#333] active:scale-[0.97] disabled:opacity-40"
           >
-            {submitting ? "Saving..." : "Save & Analyze"}
+            {submitting ? "Saving..." : `Add ${totalSelected} Connection${totalSelected !== 1 ? "s" : ""}`}
           </button>
           <button
-            onClick={async () => { await handleSubmit(); }}
+            onClick={async () => { setSubmitting(true); await onSubmit([]); setSubmitting(false); }}
             disabled={submitting}
             className="rounded-xl border border-black/[0.06] px-5 py-2.5 text-[13px] font-medium text-gray-500 transition-all duration-200 hover:bg-gray-50 active:scale-[0.97]"
           >
-            Skip — No one met
+            Skip
           </button>
         </div>
       </div>
